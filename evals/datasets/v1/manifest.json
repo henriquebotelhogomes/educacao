@@ -20,7 +20,8 @@
       "page_count": 315,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/História Agrária.pdf"
+      "provenance": "support/ebooks/História Agrária.pdf",
+      "corpus_path": "support/ebooks/História Agrária.pdf"
     },
     {
       "filename": "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf",
@@ -29,7 +30,8 @@
       "page_count": 569,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf"
+      "provenance": "support/ebooks/historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf",
+      "corpus_path": "support/ebooks/historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf"
     },
     {
       "filename": "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf",
@@ -38,7 +40,8 @@
       "page_count": 214,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf"
+      "provenance": "support/ebooks/Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf",
+      "corpus_path": "support/ebooks/Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf"
     },
     {
       "filename": "buhler-9786557250044.pdf",
@@ -47,7 +50,8 @@
       "page_count": 277,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/buhler-9786557250044.pdf"
+      "provenance": "support/ebooks/buhler-9786557250044.pdf",
+      "corpus_path": "support/ebooks/buhler-9786557250044.pdf"
     },
     {
       "filename": "LIVRO  MUNDIALIZAÇÃO pronto.pdf",
@@ -56,16 +60,41 @@
       "page_count": 545,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/LIVRO  MUNDIALIZAÇÃO pronto.pdf"
+      "provenance": "support/ebooks/LIVRO  MUNDIALIZAÇÃO pronto.pdf",
+      "corpus_path": "support/ebooks/LIVRO  MUNDIALIZAÇÃO pronto.pdf"
     },
     {
-      "filename": "ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+      "filename": "ph-gerente-editora-cerrado-goiano-poor-scan.pdf",
       "doc_type": "poor_scan",
-      "sha256": "7d6a3e65e38b56d2ab5e985e5dbf872cab3bd45e8a322099084223f69beee164",
-      "page_count": 100,
+      "sha256": "1ccbdb687fc9b8443a14e727ad6e5dfa4e83eafa1f188962372b98dbd9a20290",
+      "page_count": 18,
       "license_basis": "user_attestation",
       "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
-      "provenance": "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf"
+      "provenance": "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+      "corpus_path": "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+      "fixture_path": "evals/fixtures/ph-gerente-editora-cerrado-goiano-poor-scan.pdf",
+      "source_sha256": "7d6a3e65e38b56d2ab5e985e5dbf872cab3bd45e8a322099084223f69beee164",
+      "page_map": {
+        "1": 18,
+        "2": 20,
+        "3": 22,
+        "4": 24,
+        "5": 26,
+        "6": 28,
+        "7": 30,
+        "8": 32,
+        "9": 40,
+        "10": 45,
+        "11": 50,
+        "12": 55,
+        "13": 60,
+        "14": 65,
+        "15": 70,
+        "16": 75,
+        "17": 80,
+        "18": 85
+      },
+      "notes": "Derived poor-scan fixture. The logical document benchmarked here is the image-only PDF at fixture_path, produced deterministically by evals/generate_degraded_fixture.py (seed=42, dpi=110, quality=20) from the original text source at corpus_path. Text extraction from the fixture is empty by construction, so paginas_esperadas in golden.jsonl reference fixture pages (1-18) and the evidence audit translates them to source pages via page_map before reading corpus_path. sha256/page_count describe the fixture; source_sha256 describes the original source."
     }
   ]
 }

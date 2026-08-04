@@ -20,21 +20,15 @@ class TestGoldenDatasetSize:
 
     def test_answerable_count(self, golden_items: list[dict]) -> None:
         count = sum(1 for i in golden_items if i["tipo"] == "answerable")
-        assert count == EXPECTED_ANSWERABLE, (
-            f"Expected {EXPECTED_ANSWERABLE} answerable items, got {count}"
-        )
+        assert count == EXPECTED_ANSWERABLE
 
     def test_unanswerable_count(self, golden_items: list[dict]) -> None:
         count = sum(1 for i in golden_items if i["tipo"] == "unanswerable")
-        assert count == EXPECTED_UNANSWERABLE, (
-            f"Expected {EXPECTED_UNANSWERABLE} unanswerable items, got {count}"
-        )
+        assert count == EXPECTED_UNANSWERABLE
 
     def test_ambiguous_partial_count(self, golden_items: list[dict]) -> None:
         count = sum(1 for i in golden_items if i["tipo"] == "ambiguous_partial")
-        assert count == EXPECTED_AMBIGUOUS_PARTIAL, (
-            f"Expected {EXPECTED_AMBIGUOUS_PARTIAL} ambiguous_partial items, got {count}"
-        )
+        assert count == EXPECTED_AMBIGUOUS_PARTIAL
 
     def test_composition_sums_to_total(self, golden_items: list[dict]) -> None:
         answerable = sum(1 for i in golden_items if i["tipo"] == "answerable")
@@ -49,24 +43,35 @@ class TestGoldenDatasetDocumentCoverage:
         assert docs_used == EXPECTED_FILENAMES
 
     def test_balanced_coverage_per_document(self, golden_items: list[dict]) -> None:
-        """Each document must have exactly ITEMS_PER_DOC items."""
         from collections import Counter
 
         counts = Counter(i["documento"] for i in golden_items)
         for filename in EXPECTED_FILENAMES:
-            assert counts[filename] == ITEMS_PER_DOC, (
-                f"{filename}: expected {ITEMS_PER_DOC} items, got {counts[filename]}"
-            )
+            assert (
+                counts[filename] == ITEMS_PER_DOC
+            ), f"{filename}: expected {ITEMS_PER_DOC} items, got {counts[filename]}"
+
+    def test_balanced_composition_per_document(self, golden_items: list[dict]) -> None:
+        """Each document must have 12 answerable + 5 unanswerable + 3 ambiguous."""
+        from collections import Counter, defaultdict
+
+        per_doc: dict[str, Counter] = defaultdict(Counter)
+        for item in golden_items:
+            per_doc[item["documento"]][item["tipo"]] += 1
+        for filename in EXPECTED_FILENAMES:
+            counts = per_doc[filename]
+            assert counts["answerable"] == 12, f"{filename}: {counts}"
+            assert counts["unanswerable"] == 5, f"{filename}: {counts}"
+            assert counts["ambiguous_partial"] == 3, f"{filename}: {counts}"
 
     def test_pages_within_document_bounds(self, golden_items: list[dict]) -> None:
-        """All paginas_esperadas values must be within the actual page count."""
         for item in golden_items:
             doc = item["documento"]
             max_page = EXPECTED_PAGE_COUNTS[doc]
             for page in item["paginas_esperadas"]:
-                assert 1 <= page <= max_page, (
-                    f"Item {item['id']}: page {page} out of range for {doc} (max {max_page})"
-                )
+                assert (
+                    1 <= page <= max_page
+                ), f"Item {item['id']}: page {page} out of range for {doc} (max {max_page})"
 
 
 class TestGoldenDatasetItemSchema:
@@ -83,53 +88,82 @@ class TestGoldenDatasetItemSchema:
             assert item["id"].startswith("v1-"), f"ID {item['id']} must start with 'v1-'"
 
     def test_all_review_status_is_draft(self, golden_items: list[dict]) -> None:
-        """No item should be pre-marked as reviewed/approved (prevents fabrication)."""
         for item in golden_items:
-            assert item["review_status"] == "draft", (
-                f"Item {item['id']}: review_status must be 'draft' until human review, "
-                f"got '{item['review_status']}'"
-            )
+            assert (
+                item["review_status"] == "draft"
+            ), f"Item {item['id']}: review_status must be 'draft' until human review"
 
-    def test_unanswerable_items_have_null_or_explanation(self, golden_items: list[dict]) -> None:
-        for item in golden_items:
-            if item["tipo"] == "unanswerable":
-                assert item.get("resposta_referencia") is None, (
-                    f"Item {item['id']}: unanswerable items must have null resposta_referencia"
-                )
 
-    def test_answerable_items_have_reference_answer(self, golden_items: list[dict]) -> None:
+class TestGoldenDatasetEvidence:
+    def test_answerable_have_evidence_and_pages(self, golden_items: list[dict]) -> None:
         for item in golden_items:
             if item["tipo"] == "answerable":
+                assert item["evidence_quotes"], f"{item['id']}: missing evidence_quotes"
+                assert item["paginas_esperadas"], f"{item['id']}: missing paginas_esperadas"
                 ref = item.get("resposta_referencia")
-                assert ref is not None and ref.strip(), (
-                    f"Item {item['id']}: answerable items must have a non-empty resposta_referencia"
-                )
+                assert ref and ref.strip(), f"{item['id']}: missing resposta_referencia"
 
-    def test_unanswerable_items_have_notas(self, golden_items: list[dict]) -> None:
-        """Unanswerable items must explain why they are unanswerable."""
+    def test_ambiguous_have_evidence_pages_and_notas(self, golden_items: list[dict]) -> None:
+        for item in golden_items:
+            if item["tipo"] == "ambiguous_partial":
+                assert item["evidence_quotes"], f"{item['id']}: missing evidence_quotes"
+                assert item["paginas_esperadas"], f"{item['id']}: missing paginas_esperadas"
+                assert item.get("notas", "").strip(), f"{item['id']}: missing notas"
+
+    def test_unanswerable_have_empty_pages_and_evidence(self, golden_items: list[dict]) -> None:
         for item in golden_items:
             if item["tipo"] == "unanswerable":
-                notas = item.get("notas")
-                assert notas and notas.strip(), (
-                    f"Item {item['id']}: unanswerable items must have notas explaining why"
-                )
+                assert (
+                    item.get("resposta_referencia") is None
+                ), f"{item['id']}: unanswerable must have null resposta_referencia"
+                assert (
+                    item["paginas_esperadas"] == []
+                ), f"{item['id']}: unanswerable must have empty paginas_esperadas"
+                assert (
+                    item["evidence_quotes"] == []
+                ), f"{item['id']}: unanswerable must have empty evidence_quotes"
+                assert item.get(
+                    "notas", ""
+                ).strip(), f"{item['id']}: unanswerable must explain why in notas"
 
-    def test_all_perguntas_are_nonempty_ptbr(self, golden_items: list[dict]) -> None:
+    def test_evidence_quotes_are_nontrivial(self, golden_items: list[dict]) -> None:
+        for item in golden_items:
+            for quote in item["evidence_quotes"]:
+                assert (
+                    len(quote.strip()) >= 15
+                ), f"{item['id']}: evidence quote too short: {quote!r}"
+
+
+class TestGoldenDatasetQuestions:
+    def test_all_perguntas_are_nonempty(self, golden_items: list[dict]) -> None:
         for item in golden_items:
             assert item["pergunta"].strip(), f"Item {item['id']}: empty pergunta"
-            assert len(item["pergunta"]) >= 10, (
-                f"Item {item['id']}: pergunta too short: {item['pergunta']!r}"
-            )
+            assert (
+                len(item["pergunta"]) >= 10
+            ), f"Item {item['id']}: pergunta too short: {item['pergunta']!r}"
+
+    def test_questions_are_not_cloze_tautologies(self, golden_items: list[dict]) -> None:
+        """Reject 'what does this sentence say' style non-questions."""
+        banned = [
+            "o que esta frase",
+            "o que essa frase",
+            "complete a frase",
+            "preencha a lacuna",
+            "qual palavra falta",
+        ]
+        for item in golden_items:
+            low = item["pergunta"].lower()
+            for phrase in banned:
+                assert phrase not in low, f"{item['id']}: cloze/tautology question: {low!r}"
 
     def test_difficulty_values_valid(self, golden_items: list[dict]) -> None:
         valid = {"facil", "medio", "dificil"}
         for item in golden_items:
-            assert item["dificuldade"] in valid, (
-                f"Item {item['id']}: invalid dificuldade '{item['dificuldade']}'"
-            )
+            assert (
+                item["dificuldade"] in valid
+            ), f"Item {item['id']}: invalid dificuldade '{item['dificuldade']}'"
 
     def test_difficulty_balanced_across_items(self, golden_items: list[dict]) -> None:
-        """Each difficulty level should appear in at least 20% of items."""
         from collections import Counter
 
         counts = Counter(i["dificuldade"] for i in golden_items)

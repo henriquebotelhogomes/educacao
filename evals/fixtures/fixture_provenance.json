@@ -1,10 +1,33 @@
 {
-  "source_pdf": "support\\ebooks\\ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+  "fixture_pdf": "ph-gerente-editora-cerrado-goiano-poor-scan.pdf",
+  "fixture_sha256": "1ccbdb687fc9b8443a14e727ad6e5dfa4e83eafa1f188962372b98dbd9a20290",
+  "fixture_page_count": 18,
+  "source_pdf": "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf",
   "source_sha256": "7d6a3e65e38b56d2ab5e985e5dbf872cab3bd45e8a322099084223f69beee164",
-  "n_pages": 5,
+  "page_map": {
+    "1": 18,
+    "2": 20,
+    "3": 22,
+    "4": 24,
+    "5": 26,
+    "6": 28,
+    "7": 30,
+    "8": 32,
+    "9": 40,
+    "10": 45,
+    "11": 50,
+    "12": 55,
+    "13": 60,
+    "14": 65,
+    "15": 70,
+    "16": 75,
+    "17": 80,
+    "18": 85
+  },
   "seed": 42,
-  "fixture_pdf": "ph-Gerente-da-editora-cerrado-goiano-scan-fixture-p1-5.pdf",
-  "generated_at": "2026-08-04T02:15:39.081469+00:00",
+  "dpi": 110,
+  "quality": 20,
   "generator": "evals/generate_degraded_fixture.py",
-  "notes": "This is a test fixture only. It is derived from the source PDF to simulate poor scan quality in pipeline tests. The source PDF is authorized for use per user attestation on 2026-08-03. Any copyright or license statements embedded in the original PDF are preserved and take precedence."
+  "degradation": "grayscale, contrast loss, Gaussian blur, additive noise, skew",
+  "notes": "Image-only fixture: text extraction from this PDF is empty by construction. Fixture page N maps to the original source page given in page_map. The source PDF is authorized for use per user attestation on 2026-08-03; any embedded copyright notices are preserved and take precedence."
 }

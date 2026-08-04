@@ -11,9 +11,18 @@ REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 EVALS_ROOT = REPO_ROOT / "evals"
 DATASETS_V1 = EVALS_ROOT / "datasets" / "v1"
 SUPPORT_EBOOKS = REPO_ROOT / "support" / "ebooks"
+FIXTURES_DIR = EVALS_ROOT / "fixtures"
 
 MANIFEST_PATH = DATASETS_V1 / "manifest.json"
 GOLDEN_PATH = DATASETS_V1 / "golden.jsonl"
+
+# The poor-scan logical document is the derived, image-only fixture — NOT the
+# original text PDF.  Its corpus_path still points at the original text source so
+# the evidence audit can read real page text.
+POOR_SCAN_FILENAME = "ph-gerente-editora-cerrado-goiano-poor-scan.pdf"
+POOR_SCAN_SOURCE_FILENAME = "ph,+Gerente+da+editora,+cerrado-goiano.pdf"
+FIXTURE_PATH = FIXTURES_DIR / POOR_SCAN_FILENAME
+POOR_SCAN_SOURCE_PATH = SUPPORT_EBOOKS / POOR_SCAN_SOURCE_FILENAME
 
 EXPECTED_FILENAMES = {
     "História Agrária.pdf",
@@ -21,7 +30,7 @@ EXPECTED_FILENAMES = {
     "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf",
     "buhler-9786557250044.pdf",
     "LIVRO  MUNDIALIZAÇÃO pronto.pdf",
-    "ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+    POOR_SCAN_FILENAME,
 }
 
 EXPECTED_DOC_TYPES = {
@@ -30,7 +39,7 @@ EXPECTED_DOC_TYPES = {
     "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf": "table_heavy",
     "buhler-9786557250044.pdf": "table_heavy",
     "LIVRO  MUNDIALIZAÇÃO pronto.pdf": "dense",
-    "ph,+Gerente+da+editora,+cerrado-goiano.pdf": "poor_scan",
+    POOR_SCAN_FILENAME: "poor_scan",
 }
 
 EXPECTED_PAGE_COUNTS = {
@@ -38,8 +47,23 @@ EXPECTED_PAGE_COUNTS = {
     "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf": 569,
     "História Agrária.pdf": 315,
     "LIVRO  MUNDIALIZAÇÃO pronto.pdf": 545,
-    "ph,+Gerente+da+editora,+cerrado-goiano.pdf": 100,
+    POOR_SCAN_FILENAME: 18,
     "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf": 214,
+}
+
+# The five text documents live under support/ebooks and are their own corpus.
+# The poor-scan fixture's corpus is the original text source.
+EXPECTED_CORPUS_PATHS = {
+    "História Agrária.pdf": "support/ebooks/História Agrária.pdf",
+    "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf": (
+        "support/ebooks/historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf"
+    ),
+    "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf": (
+        "support/ebooks/Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf"
+    ),
+    "buhler-9786557250044.pdf": "support/ebooks/buhler-9786557250044.pdf",
+    "LIVRO  MUNDIALIZAÇÃO pronto.pdf": "support/ebooks/LIVRO  MUNDIALIZAÇÃO pronto.pdf",
+    POOR_SCAN_FILENAME: f"support/ebooks/{POOR_SCAN_SOURCE_FILENAME}",
 }
 
 TOTAL_ITEMS = 120

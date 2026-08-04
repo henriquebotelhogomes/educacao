@@ -1,14 +1,22 @@
 """
-Internal script: generates evals/datasets/v1/golden.jsonl.
+_build_golden.py — Regenerates evals/datasets/v1/golden.jsonl.
 
-Run once to (re)create the dataset skeleton:
+Run to (re)create the dataset:
+
     python evals/_build_golden.py
 
-All 120 items carry review_status='draft'. Human curators must:
-  1. Verify each resposta_referencia against the actual PDF pages.
-  2. Update review_status to 'reviewed' and then 'approved' per item.
-  3. Run `python evals/validate.py freeze` after every item reaches 'approved'.
+Every item carries ``review_status='draft'``.  Answerable and ambiguous items
+carry one or more ``evidence_quotes`` copied verbatim from the exact
+``paginas_esperadas``; unanswerable items carry no reference answer, no pages and
+no evidence, with a ``notas`` rationale.  After editing, always run:
 
+    python evals/validate.py check \\
+        --dataset evals/datasets/v1/golden.jsonl \\
+        --manifest evals/datasets/v1/manifest.json
+
+which fails if any evidence quote is not present on its expected page.
+
+Human curators must verify each item and only then advance ``review_status``.
 Do NOT fabricate benchmark scores against draft items.
 """
 
@@ -16,1574 +24,1783 @@ from __future__ import annotations
 
 import json
 import pathlib
-
-# ---------------------------------------------------------------------------
-# Raw data: (id, pergunta, resposta_referencia_or_null, documento,
-#            paginas_esperadas, tipo, dificuldade, notas_or_null)
-# ---------------------------------------------------------------------------
+from typing import Optional
 
 DOC_HA = "História Agrária.pdf"
 DOC_MA = "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf"
 DOC_PP = "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf"
 DOC_BH = "buhler-9786557250044.pdf"
 DOC_MU = "LIVRO  MUNDIALIZAÇÃO pronto.pdf"
-DOC_CG = "ph,+Gerente+da+editora,+cerrado-goiano.pdf"
+DOC_CG = "ph-gerente-editora-cerrado-goiano-poor-scan.pdf"
 
-A = "answerable"
-U = "unanswerable"
-AP = "ambiguous_partial"
-F = "facil"
-M = "medio"
-D = "dificil"
 
-ITEMS_RAW: list[tuple] = [
-    # -----------------------------------------------------------------------
-    # História Agrária.pdf — narrative — 315 pages
-    # -----------------------------------------------------------------------
-    (
+def item(
+    item_id: str,
+    tipo: str,
+    dificuldade: str,
+    documento: str,
+    pergunta: str,
+    resposta: Optional[str] = None,
+    paginas: Optional[list[int]] = None,
+    evidence: Optional[list[str]] = None,
+    notas: Optional[str] = None,
+) -> dict:
+    return {
+        "id": item_id,
+        "pergunta": pergunta,
+        "resposta_referencia": resposta,
+        "documento": documento,
+        "paginas_esperadas": paginas or [],
+        "evidence_quotes": evidence or [],
+        "tipo": tipo,
+        "dificuldade": dificuldade,
+        "review_status": "draft",
+        "notas": notas,
+    }
+
+
+# ---------------------------------------------------------------------------
+# História Agrária.pdf — narrative — 315 pages
+# ---------------------------------------------------------------------------
+HA_ITEMS: list[dict] = [
+    item(
         "v1-ha-001",
-        F,
-        A,
+        "answerable",
+        "facil",
         DOC_HA,
-        [12, 13],
-        "O que é a questão agrária no contexto histórico brasileiro?",
-        "A questão agrária refere-se ao problema da distribuição desigual da terra no "
-        "Brasil, marcada pela concentração fundiária desde o período colonial.",
-        None,
+        "Que transformação na produção agrícola da região de Nazaré é indicada "
+        "pelos relatos das câmaras municipais no século XIX?",
+        "Os relatos apontam a expansão da cultura do café em substituição à da "
+        "mandioca, tendência que não se restringiu à Comarca de Nazaré.",
+        [20],
+        [
+            "A ampliação da produção de café em detrimento de outras culturas não "
+            "foi exclusividade da Comarca de Nazaré.",
+            "a lavoura da mandioca está estacionaria, enquanto a do café progride",
+        ],
     ),
-    (
+    item(
         "v1-ha-002",
-        F,
-        A,
+        "answerable",
+        "medio",
         DOC_HA,
-        [25, 26],
-        "Como o sistema de sesmarias influenciou a estrutura fundiária colonial?",
-        "O sistema de sesmarias distribuía grandes extensões de terra para poucos "
-        "beneficiários, consolidando o latifúndio como base da estrutura agrária colonial.",
-        None,
+        "Que importância tinha a posse de pessoas escravizadas para a maioria "
+        "pobre da Comarca de Nazaré após 1850?",
+        "Para a grande maioria dos pobres, os escravizados eram o principal ou "
+        "único bem de valor, e mantê-los era uma estratégia de sobrevivência.",
+        [30],
+        [
+            "para a grande maioria dos pobres, a posse de escravizados era o "
+            "principal ou único bem de valor que possuíam",
+            "Manter essa posse era estratégia de sobrevivência.",
+        ],
     ),
-    (
+    item(
         "v1-ha-003",
-        F,
-        A,
+        "answerable",
+        "medio",
         DOC_HA,
-        [45, 46],
-        "Qual foi o papel da escravidão na formação da agricultura brasileira?",
-        "A escravidão foi fundamental para o funcionamento das grandes propriedades "
-        "monocultoras, especialmente nos engenhos de açúcar e nas fazendas de café.",
-        None,
+        "Como o texto caracteriza as trajetórias de vida dos negros camponeses?",
+        "Elas revelam uma condição humana singular e a dimensão política de que "
+        "se revestem suas trajetórias ao longo do tempo.",
+        [42],
+        [
+            "As vidas vividas por negros camponeses, através dos tempos, revelam a "
+            "condição humana singular e a dimensão política de que se revestem suas "
+            "trajetórias.",
+        ],
     ),
-    (
+    item(
         "v1-ha-004",
-        M,
-        A,
+        "answerable",
+        "facil",
         DOC_HA,
-        [78, 79, 80],
-        "Como a Lei de Terras de 1850 transformou o acesso à propriedade fundiária?",
-        "A Lei de Terras de 1850 estabeleceu que a terra só poderia ser adquirida por "
-        "compra e venda, excluindo os trabalhadores pobres do acesso à propriedade e "
-        "consolidando o poder dos grandes latifundiários.",
-        None,
+        "Qual é a situação das políticas públicas de saúde na comunidade quilombola de Barriguda?",
+        "O texto aponta a inexistência de políticas públicas de saúde na "
+        "comunidade quilombola de Barriguda.",
+        [70],
+        [
+            "Na comunidade Quilombola de Barriguda é facilmente visível a "
+            "inexistência de políticas públicas para a saúde.",
+        ],
     ),
-    (
+    item(
         "v1-ha-005",
-        M,
-        A,
+        "answerable",
+        "medio",
         DOC_HA,
-        [95, 96],
-        "De que forma a expansão cafeeira do século XIX modificou a estrutura agrária brasileira?",
-        "A expansão cafeeira gerou uma nova elite fundiária no Oeste Paulista, "
-        "impulsionou a imigração europeia como mão de obra e criou o sistema de colonato "
-        "como forma de trabalho livre na cafeicultura.",
-        None,
+        "Qual é, segundo os autores citados, um dos efeitos mais danosos da "
+        "terceirização para os trabalhadores?",
+        "A fragmentação da organização e da luta dos trabalhadores é apontada "
+        "como um dos aspectos mais danosos da terceirização.",
+        [120],
+        [
+            "um dos aspectos mais danosos impostos pela terceirização à "
+            "organização e luta dos trabalhadores é a sua fragmentação",
+        ],
     ),
-    (
+    item(
         "v1-ha-006",
-        M,
-        A,
+        "answerable",
+        "dificil",
         DOC_HA,
-        [142, 143],
-        "Quais foram as principais características do campesinato brasileiro no século XX?",
-        "O campesinato brasileiro caracterizou-se pela posse precária da terra, "
-        "subordinação ao coronelismo local, produção de subsistência e constante ameaça "
-        "de expulsão pelas frentes de expansão do agronegócio.",
-        None,
+        "Como analistas avaliam a origem do relacionamento nipo-brasileiro "
+        "ligado ao complexo Albras-Alunorte?",
+        "Muitos analistas indicam que o relacionamento se deu em grande parte por "
+        "iniciativa do Japão, cabendo ao Brasil apenas uma função reativa.",
+        [140],
+        [
+            "muitos analistas indicam que esse relacionamento se deu em grande "
+            "parte por iniciativa do Japão, cabendo ao Brasil apenas uma função "
+            "reativa",
+        ],
     ),
-    (
+    item(
         "v1-ha-007",
-        M,
-        A,
+        "answerable",
+        "medio",
         DOC_HA,
-        [165, 166, 167],
-        "Como os conflitos de terra marcaram a história agrária brasileira?",
-        "Os conflitos de terra, como as lutas dos posseiros e trabalhadores sem-terra, "
-        "foram constantes na história agrária, culminando na formação de movimentos como "
-        "as Ligas Camponesas e o MST.",
-        None,
+        "Como o trabalhador livre era visto no contexto do relatório de 1837?",
+        "Era visto como fonte de progresso, superior ao trabalho escravo e como "
+        "mecanismo eficaz na mestiçagem dos povos indígenas.",
+        [160],
+        [
+            "O trabalhador livre era visto como fonte de progresso, superior ao "
+            "trabalho escravo, e representava um mecanismo eficaz na mestiçagem dos "
+            "povos indígenas.",
+        ],
     ),
-    (
+    item(
         "v1-ha-008",
-        D,
-        A,
+        "answerable",
+        "facil",
         DOC_HA,
-        [188, 189],
-        "Qual é a relação entre industrialização e questão agrária no Brasil pós-1950?",
-        "A industrialização acelerada impulsionou o êxodo rural, transformando a questão "
-        "agrária ao gerar uma reserva de mão de obra urbana oriunda do campo, enquanto "
-        "manteve a estrutura fundiária concentrada para assegurar oferta de alimentos "
-        "baratos à indústria.",
-        None,
+        "Quais foram os focos das primeiras lutas das mulheres no Brasil, iniciadas no século XIX?",
+        "Enfocaram o acesso ao voto feminino e o reconhecimento dos direitos civis das mulheres.",
+        [180],
+        [
+            "as primeiras lutas das mulheres, iniciadas no século XIX, enfocaram o "
+            "acesso ao voto feminino e o reconhecimento dos direitos civis das "
+            "mulheres",
+        ],
     ),
-    (
+    item(
         "v1-ha-009",
-        D,
-        A,
+        "answerable",
+        "medio",
         DOC_HA,
-        [215, 216, 217],
-        "Como a modernização conservadora da agricultura brasileira nas décadas de 1960 "
-        "e 1970 afetou os trabalhadores rurais?",
-        "A modernização conservadora incorporou tecnologia e insumos químicos nas grandes "
-        "propriedades sem alterar a estrutura fundiária, expulsando trabalhadores rurais, "
-        "mecanizando a produção e aprofundando as desigualdades no campo.",
-        None,
-    ),
-    (
-        "v1-ha-010",
-        D,
-        A,
-        DOC_HA,
-        [245, 246],
-        "Quais correntes teóricas disputaram a interpretação da questão agrária "
-        "brasileira ao longo do século XX?",
-        "Disputaram-se a corrente estruturalista (via CEPAL), que via o latifúndio como "
-        "obstáculo ao desenvolvimento, a corrente marxista, que interpretava a questão "
-        "agrária como expressão do capitalismo, e a corrente que defendia a reforma "
-        "agrária como requisito para a democratização.",
-        None,
-    ),
-    (
-        "v1-ha-011",
-        F,
-        A,
-        DOC_HA,
-        [270, 271],
-        "O que diferencia o latifúndio improdutivo do agronegócio moderno na "
-        "historiografia agrária brasileira?",
-        "O latifúndio improdutivo caracterizava-se pela baixa utilização da terra e uso "
-        "extensivo da mão de obra, enquanto o agronegócio moderno é marcado pela alta "
-        "produtividade, mecanização e integração ao mercado internacional.",
-        None,
-    ),
-    (
-        "v1-ha-012",
-        M,
-        A,
-        DOC_HA,
-        [298, 299],
-        "Como a Constituição de 1988 tratou a questão da reforma agrária?",
-        "A Constituição de 1988 estabeleceu a função social da propriedade rural, "
-        "prevendo a desapropriação de imóveis que não cumpram essa função, e criou "
-        "mecanismos para a reforma agrária, embora limitados na prática.",
-        None,
-    ),
-    (
-        "v1-ha-013",
-        F,
-        U,
-        DOC_HA,
-        [1],
-        "Qual será o número de assentamentos da reforma agrária no Brasil em 2030?",
-        None,
-        "Dado futuro não disponível no texto; o livro trata de perspectiva histórica, "
-        "sem projeções quantitativas para 2030.",
-    ),
-    (
-        "v1-ha-014",
-        F,
-        U,
-        DOC_HA,
-        [1],
-        "Qual é o e-mail do autor para contato sobre a obra?",
-        None,
-        "Informação de contato pessoal do autor não consta no livro.",
-    ),
-    (
-        "v1-ha-015",
-        M,
-        U,
-        DOC_HA,
-        [1],
-        "Quais são os dados do cadastro rural individual dos agricultores mencionados "
-        "como exemplos históricos?",
-        None,
-        "Dados individuais de cadastro de agricultores específicos não constam no texto; "
-        "o livro opera em nível analítico-histórico.",
-    ),
-    (
-        "v1-ha-016",
-        M,
-        U,
-        DOC_HA,
-        [1],
-        "Qual é o preço médio por hectare das terras discutidas no livro no mercado atual?",
-        None,
-        "Preços de mercado atuais não são fornecidos; o livro analisa estruturas "
-        "históricas, não cotações correntes.",
-    ),
-    (
-        "v1-ha-017",
-        D,
-        U,
-        DOC_HA,
-        [1],
-        "Qual é o posicionamento político-partidário do autor sobre a reforma agrária "
-        "brasileira hoje?",
-        None,
-        "Posicionamento político pessoal do autor não é explicitado no texto; o livro "
-        "adota perspectiva acadêmica histórica.",
-    ),
-    (
-        "v1-ha-018",
-        M,
-        AP,
-        DOC_HA,
-        [200, 201, 250, 251],
-        "A reforma agrária no Brasil foi bem-sucedida?",
-        "O texto discute tanto conquistas dos assentamentos quanto suas limitações "
-        "(falta de crédito, assistência técnica e infraestrutura), sem emitir um "
-        "julgamento definitivo sobre o êxito global da reforma agrária.",
-        "Ambíguo: o livro apresenta múltiplas perspectivas sobre os resultados da "
-        "reforma agrária sem conclusão avaliativa definitiva.",
-    ),
-    (
-        "v1-ha-019",
-        F,
-        AP,
-        DOC_HA,
-        [18, 19],
-        "O que é um camponês?",
-        "O texto apresenta diferentes concepções de camponês, incluindo definições "
-        "baseadas em relação com a terra, autonomia produtiva e posição no modo de "
-        "produção, sem adotar uma única definição canônica.",
-        "Parcial: o livro apresenta múltiplas definições em disputa sem consolidar uma "
-        "única resposta.",
-    ),
-    (
-        "v1-ha-020",
-        D,
-        AP,
-        DOC_HA,
-        [260, 261],
-        "Como se compara a concentração fundiária brasileira com a de países da América Latina?",
-        "O texto faz algumas referências comparativas à América Latina, mas não fornece "
-        "análise sistemática comparativa entre países; os dados comparativos são "
-        "fragmentados.",
-        "Parcial: o livro aborda comparações pontuais, não um estudo comparativo sistemático.",
-    ),
-    # -----------------------------------------------------------------------
-    # historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf
-    # narrative — 569 pages
-    # -----------------------------------------------------------------------
-    (
-        "v1-ma-001",
-        F,
-        A,
-        DOC_MA,
-        [35, 36],
-        "Onde e quando surgiram os primeiros focos independentes de agricultura neolítica?",
-        "Os primeiros focos de agricultura neolítica surgiram por volta de 10.000 a.C. "
-        "no Crescente Fértil (Oriente Médio), e de forma independente na China (c. "
-        "7.000 a.C.) e na América Central (c. 5.000 a.C.).",
-        None,
-    ),
-    (
-        "v1-ma-002",
-        F,
-        A,
-        DOC_MA,
-        [42, 43],
-        "Quais foram as principais plantas domesticadas durante a revolução neolítica?",
-        "As principais plantas domesticadas foram o trigo e a cevada (Oriente Médio), "
-        "o arroz e o milho (Ásia Oriental e América), além de leguminosas como lentilha "
-        "e ervilha.",
-        None,
-    ),
-    (
-        "v1-ma-003",
-        M,
-        A,
-        DOC_MA,
-        [28, 29],
-        "Como Marcel Mazoyer e Laurence Roudart definem 'sistema agrário'?",
-        "Os autores definem sistema agrário como o modo de exploração do meio cultivado, "
-        "historicamente constituído e durável, adaptado às condições bioclimáticas de um "
-        "espaço e que responde às condições e necessidades sociais do momento.",
-        None,
-    ),
-    (
-        "v1-ma-004",
-        M,
-        A,
-        DOC_MA,
-        [450, 451, 452],
-        "Quais foram as causas e consequências da chamada Revolução Verde do século XX?",
-        "A Revolução Verde foi impulsionada pelo desenvolvimento de variedades de alto "
-        "rendimento, irrigação intensiva e agroquímicos. Aumentou a produção global, mas "
-        "excluiu pequenos agricultores sem capital, aprofundou desigualdades e gerou "
-        "impactos ambientais negativos.",
-        None,
-    ),
-    (
-        "v1-ma-005",
-        M,
-        A,
-        DOC_MA,
-        [510, 511],
-        "Como os autores explicam o paradoxo da fome em um mundo que produz alimentos suficientes?",
-        "Os autores argumentam que o paradoxo da fome resulta não de escassez absoluta "
-        "de alimentos, mas da desigualdade econômica global, que impede bilhões de "
-        "pessoas de acessar os alimentos produzidos.",
-        None,
-    ),
-    (
-        "v1-ma-006",
-        F,
-        A,
-        DOC_MA,
-        [115, 116],
-        "Qual foi o papel da tração animal na revolução agrária medieval?",
-        "A introdução do cavalo como animal de tração, juntamente com o arado pesado e "
-        "a rotação trienal, constituiu a revolução agrária medieval, multiplicando a "
-        "produtividade do trabalho agrícola na Europa.",
-        None,
-    ),
-    (
-        "v1-ma-007",
-        M,
-        A,
-        DOC_MA,
-        [55, 56, 57],
-        "Como a irrigação transformou os sistemas agrários do Oriente Médio antigo?",
-        "A irrigação permitiu o cultivo em regiões áridas do Crescente Fértil, "
-        "sustentando as primeiras civilizações da Mesopotâmia, mas também levou à "
-        "salinização dos solos ao longo de séculos, contribuindo para o declínio dessas "
-        "civilizações.",
-        None,
-    ),
-    (
-        "v1-ma-008",
-        D,
-        A,
-        DOC_MA,
-        [482, 483, 484],
-        "Como os autores analisam o impacto da mecanização agrícola sobre as populações "
-        "rurais nos países em desenvolvimento?",
-        "A mecanização em países em desenvolvimento expulsou camponeses sem criar "
-        "empregos alternativos, gerando um êxodo rural desestruturante e aprofundando a "
-        "pobreza urbana, ao contrário da Europa Ocidental onde a indústria absorveu essa "
-        "mão de obra.",
-        None,
-    ),
-    (
-        "v1-ma-009",
-        D,
-        A,
-        DOC_MA,
-        [520, 521, 522],
-        "Qual é a tese central dos autores sobre a crise agrícola e alimentar mundial "
-        "contemporânea?",
-        "A tese central é que a globalização do modelo de agricultura industrializada "
-        "destrói os sistemas agrários camponeses do Sul Global, produzindo eliminação dos "
-        "pequenos agricultores sem que o mercado gere alternativas de renda nem o Estado "
-        "intervenha com políticas de proteção.",
-        None,
-    ),
-    (
-        "v1-ma-010",
-        M,
-        A,
-        DOC_MA,
-        [195, 196],
-        "Como os autores avaliam o sistema de pousio longo na África subsaariana?",
-        "O pousio longo é apresentado como um sistema adaptado às condições da África "
-        "subsaariana de baixa densidade populacional, que permite a regeneração do solo "
-        "sem insumos externos, mas que entra em colapso quando a pressão demográfica "
-        "reduz o período de repouso da terra.",
-        None,
-    ),
-    (
-        "v1-ma-011",
-        D,
-        A,
-        DOC_MA,
-        [265, 266, 267],
-        "De que forma a colonização europeia desestabilizou os sistemas agrários "
-        "africanos e asiáticos?",
-        "A colonização impôs culturas de exportação em detrimento da produção alimentar, "
-        "concentrou terras em plantations, destruiu formas coletivas de uso do solo e "
-        "introduziu trabalho forçado, gerando desequilíbrios que persistem até hoje.",
-        None,
-    ),
-    (
-        "v1-ma-012",
-        F,
-        A,
-        DOC_MA,
-        [80, 81],
-        "Quais são as principais diferenças entre agricultura extensiva e intensiva "
-        "segundo o livro?",
-        "A agricultura extensiva utiliza grandes áreas com baixa aplicação de insumos e "
-        "trabalho por unidade de superfície, enquanto a intensiva aplica mais capital, "
-        "trabalho e insumos por hectare, obtendo maiores rendimentos por área cultivada.",
-        None,
-    ),
-    (
-        "v1-ma-013",
-        F,
-        U,
-        DOC_MA,
-        [1],
-        "Qual é o número de telefone do editor responsável pela publicação do livro?",
-        None,
-        "Informação comercial/editorial não consta no texto acadêmico.",
-    ),
-    (
-        "v1-ma-014",
-        F,
-        U,
-        DOC_MA,
-        [1],
-        "Quais agricultores individuais foram entrevistados para a elaboração do livro?",
-        None,
-        "O livro baseia-se em análise histórica e estatística, não em entrevistas a "
-        "agricultores individuais identificados no texto.",
-    ),
-    (
-        "v1-ma-015",
-        M,
-        U,
-        DOC_MA,
-        [1],
-        "Quais são as projeções de Mazoyer para a produção agrícola global em 2050?",
-        None,
-        "O livro não apresenta projeções quantitativas até 2050; os autores fazem "
-        "análise prospectiva qualitativa mas sem modelagem numérica para essa data.",
-    ),
-    (
-        "v1-ma-016",
-        M,
-        U,
-        DOC_MA,
-        [1],
-        "Qual é o orçamento do programa de pesquisa agrícola que embasou o livro?",
-        None,
-        "Informações sobre financiamento da pesquisa não constam no texto.",
-    ),
-    (
-        "v1-ma-017",
-        D,
-        U,
-        DOC_MA,
-        [1],
-        "Quais são as senhas de acesso ao banco de dados da FAO utilizado nas "
-        "estatísticas do livro?",
-        None,
-        "Credenciais de acesso a sistemas externos não constam e não deveriam constar "
-        "em nenhuma publicação acadêmica.",
-    ),
-    (
-        "v1-ma-018",
-        D,
-        AP,
-        DOC_MA,
-        [530, 531, 545, 546],
-        "Os autores são favoráveis à agricultura orgânica como solução para a "
-        "insegurança alimentar global?",
-        "O texto aborda potencialidades da agricultura de baixo insumo para camponeses "
-        "do Sul Global, mas não conclui que a agricultura orgânica por si só possa "
-        "resolver a insegurança alimentar global; a resposta dos autores é condicionada "
-        "ao contexto.",
-        "Ambíguo: os autores discutem múltiplos modelos sem prescrever a agricultura "
-        "orgânica como solução universal.",
-    ),
-    (
-        "v1-ma-019",
-        M,
-        AP,
-        DOC_MA,
-        [85, 86, 460, 461],
-        "Qual sistema agrário é considerado o mais produtivo pelos autores?",
-        "O texto compara produtividade em diferentes métricas (por área, por trabalhador, "
-        "por insumo), e a resposta varia conforme o critério; a agricultura intensiva de "
-        "alta tecnologia tem maior produção por área, mas baixa eficiência energética.",
-        "Parcial: a resposta depende da métrica de produtividade escolhida, não havendo "
-        "designação de um sistema como 'o mais produtivo'.",
-    ),
-    (
-        "v1-ma-020",
-        M,
-        AP,
-        DOC_MA,
-        [453, 454, 500, 501],
-        "A Revolução Verde foi predominantemente positiva ou negativa para o mundo?",
-        "Os autores apresentam tanto os ganhos de produção alimentar quanto os danos "
-        "sociais (exclusão de camponeses) e ambientais (contaminação, erosão), sem "
-        "emitir veredicto unilateral sobre o saldo da Revolução Verde.",
-        "Ambíguo: o livro apresenta análise dialética da Revolução Verde sem concluir "
-        "se foi predominantemente positiva ou negativa.",
-    ),
-    # -----------------------------------------------------------------------
-    # Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf
-    # table_heavy — 214 pages
-    # -----------------------------------------------------------------------
-    (
-        "v1-pp-001",
-        F,
-        A,
-        DOC_PP,
-        [18, 19],
-        "Quais são os critérios legais para enquadramento como agricultor familiar no Brasil?",
-        "Segundo a Lei 11.326/2006, os critérios incluem: área de até quatro módulos "
-        "fiscais, mão de obra predominantemente familiar, renda originada principalmente "
-        "das atividades agropecuárias e gestão do estabelecimento pela própria família.",
-        None,
-    ),
-    (
-        "v1-pp-002",
-        F,
-        A,
-        DOC_PP,
-        [45, 46],
-        "Quais são as principais linhas de crédito do PRONAF apresentadas no livro?",
-        "O livro apresenta as linhas PRONAF Custeio, PRONAF Investimento, PRONAF "
-        "Agroindústria, PRONAF Mulher, PRONAF Jovem e PRONAF Eco, cada uma destinada a "
-        "necessidades específicas dos agricultores familiares.",
-        None,
-    ),
-    (
-        "v1-pp-003",
-        M,
-        A,
-        DOC_PP,
-        [58, 59, 60],
-        "Como o PRONAF contribuiu para o aumento da renda dos agricultores familiares "
+        "Qual era o perfil das trabalhadoras domésticas no Brasil em 2011, "
         "segundo os dados apresentados?",
-        "As tabelas do livro indicam correlação entre acesso ao PRONAF e aumento da "
-        "renda média familiar, com variações regionais expressivas, sendo o Sul do Brasil "
-        "a região com maior absorção de recursos e melhora de indicadores.",
-        None,
-    ),
-    (
-        "v1-pp-004",
-        M,
-        A,
-        DOC_PP,
-        [88, 89],
-        "Quais indicadores de sustentabilidade são utilizados na avaliação da "
-        "agricultura familiar no livro?",
-        "O livro utiliza indicadores nas dimensões econômica (renda, estabilidade "
-        "financeira), social (qualidade de vida, acesso a serviços) e ambiental (uso de "
-        "agrotóxicos, conservação do solo, diversidade produtiva).",
-        None,
-    ),
-    (
-        "v1-pp-005",
-        M,
-        A,
-        DOC_PP,
-        [72, 73, 74],
-        "Como se distribui regionalmente o acesso ao crédito do PRONAF segundo as "
-        "tabelas do livro?",
-        "As tabelas revelam forte concentração dos contratos do PRONAF nas regiões Sul e "
-        "Sudeste, com sub-representação do Norte e Nordeste apesar de concentrarem maior "
-        "parte dos agricultores familiares em situação de vulnerabilidade.",
-        None,
-    ),
-    (
-        "v1-pp-006",
-        F,
-        A,
-        DOC_PP,
-        [110, 111],
-        "O que é o PAA (Programa de Aquisição de Alimentos) e como beneficia a "
-        "agricultura familiar?",
-        "O PAA é um programa federal que compra diretamente alimentos da agricultura "
-        "familiar, garantindo preços justos sem intermediários e destinando os produtos "
-        "à rede de proteção social (escolas, hospitais, bancos de alimentos).",
-        None,
-    ),
-    (
-        "v1-pp-007",
-        M,
-        A,
-        DOC_PP,
-        [130, 131],
-        "Quais são os principais desafios de comercialização identificados para a "
-        "agricultura familiar?",
-        "Os principais desafios incluem acesso a mercados, dependência de atravessadores, "
-        "dificuldade de agregação de valor, logística inadequada no meio rural e falta de "
-        "capacitação para gestão comercial.",
-        None,
-    ),
-    (
-        "v1-pp-008",
-        D,
-        A,
-        DOC_PP,
-        [145, 146, 147],
-        "Como o livro avalia a relação entre políticas públicas de crédito e "
-        "sustentabilidade ambiental na agricultura familiar?",
-        "O livro identifica tensão entre objetivos de curto prazo das políticas de "
-        "crédito (aumento de produção) e a sustentabilidade ambiental, apontando que a "
-        "maioria dos contratos do PRONAF não exige certificação ambiental e que o crédito "
-        "muitas vezes financia práticas convencionais com agroquímicos.",
-        None,
-    ),
-    (
-        "v1-pp-009",
-        F,
-        A,
-        DOC_PP,
-        [25, 26],
-        "Qual é a definição de sustentabilidade adotada no livro?",
-        "O livro adota uma definição multidimensional de sustentabilidade que engloba "
-        "dimensões econômica, social, ambiental e cultural, reconhecendo que nenhuma "
-        "dimensão pode ser maximizada em isolamento das demais.",
-        None,
-    ),
-    (
-        "v1-pp-010",
-        D,
-        A,
-        DOC_PP,
-        [65, 66, 67],
-        "Como evolui o número de contratos do PRONAF entre sua criação e o período "
-        "analisado no livro?",
-        "As tabelas demonstram crescimento expressivo do número de contratos desde a "
-        "criação do PRONAF em 1996, com pico no final dos anos 2000 e início de 2010, "
-        "seguido de oscilações relacionadas a ajustes orçamentários e mudanças nas "
-        "regras de elegibilidade.",
-        None,
-    ),
-    (
-        "v1-pp-011",
-        D,
-        A,
-        DOC_PP,
-        [175, 176, 177],
-        "Quais são as limitações das políticas públicas para a agricultura familiar "
-        "identificadas pelo livro?",
-        "O livro aponta: focalização inadequada (recursos vão a médios produtores), "
-        "carência de assistência técnica gratuita, fraco apoio à comercialização, "
-        "descontinuidade das políticas entre governos e ausência de avaliação sistemática "
-        "de impacto.",
-        None,
-    ),
-    (
-        "v1-pp-012",
-        M,
-        A,
-        DOC_PP,
-        [115, 116],
-        "Como o PNAE contribui para o fortalecimento da agricultura familiar?",
-        "O PNAE obriga municípios a destinarem pelo menos 30% dos recursos ao "
-        "fornecimento de alimentos da agricultura familiar, criando mercado institucional "
-        "seguro para os produtores locais.",
-        None,
-    ),
-    (
-        "v1-pp-013",
-        F,
-        U,
-        DOC_PP,
-        [1],
-        "Qual é o nome do técnico do Banco do Brasil responsável pela "
-        "operacionalização do PRONAF no município estudado?",
-        None,
-        "Nomes de funcionários específicos de instituições financeiras não constam no "
-        "texto; o livro analisa políticas em escala nacional e regional.",
-    ),
-    (
-        "v1-pp-014",
-        M,
-        U,
-        DOC_PP,
-        [1],
-        "Qual será o orçamento federal destinado ao PRONAF no exercício de 2027?",
-        None,
-        "Projeções orçamentárias futuras não constam no texto; o livro analisa dados "
-        "históricos disponíveis até a data de publicação.",
-    ),
-    (
-        "v1-pp-015",
-        M,
-        U,
-        DOC_PP,
-        [1],
-        "Quais são as taxas de inadimplência do PRONAF no município de Patos de Minas?",
-        None,
-        "Dados de inadimplência municipais específicos para Patos de Minas não são "
-        "apresentados no livro.",
-    ),
-    (
-        "v1-pp-016",
-        D,
-        U,
-        DOC_PP,
-        [1],
-        "Qual é a análise química do solo das propriedades familiares amostradas no estudo?",
-        None,
-        "Análises laboratoriais de solo não são apresentadas; o livro trabalha com "
-        "indicadores socioeconômicos e qualitativos de sustentabilidade.",
-    ),
-    (
-        "v1-pp-017",
-        F,
-        U,
-        DOC_PP,
-        [1],
-        "Qual é a senha de acesso ao sistema SIATER do Ministério da Agricultura?",
-        None,
-        "Credenciais de acesso a sistemas governamentais não constam e não devem constar "
-        "em qualquer publicação.",
-    ),
-    (
-        "v1-pp-018",
-        D,
-        AP,
-        DOC_PP,
-        [155, 156, 185, 186],
-        "O PRONAF foi suficiente para promover o desenvolvimento sustentável da "
-        "agricultura familiar no Brasil?",
-        "O texto apresenta evidências de impactos positivos do PRONAF (aumento de renda "
-        "em algumas regiões) e de suas insuficiências (baixo alcance no Nordeste, "
-        "ausência de condicionalidades ambientais), sem concluir categoricamente se foi "
-        "ou não suficiente.",
-        "Ambíguo: o livro apresenta análise matizada com resultados contraditórios por "
-        "região e dimensão de sustentabilidade.",
-    ),
-    (
-        "v1-pp-019",
-        M,
-        AP,
-        DOC_PP,
-        [25, 26, 30, 31],
-        "Qual é a melhor definição de sustentabilidade para a agricultura familiar?",
-        "O texto discute múltiplas definições e frameworks de sustentabilidade sem eleger "
-        "uma como canônica; apresenta tanto a definição de Brundtland quanto abordagens "
-        "sistêmicas específicas para a realidade camponesa.",
-        "Parcial: o livro discute múltiplas definições sem escolher uma como definitiva.",
-    ),
-    (
-        "v1-pp-020",
-        D,
-        AP,
-        DOC_PP,
-        [90, 91, 165, 166],
-        "Os agricultores familiares são mais sustentáveis do que os grandes produtores?",
-        "O livro discute diferenças de práticas, indicando que a diversificação produtiva "
-        "da agricultura familiar favorece a sustentabilidade ambiental, mas que a baixa "
-        "escala pode limitar a sustentabilidade econômica; não há uma resposta categórica.",
-        "Ambíguo: a comparação depende da dimensão de sustentabilidade analisada e do "
-        "contexto regional.",
-    ),
-    # -----------------------------------------------------------------------
-    # buhler-9786557250044.pdf — table_heavy — 277 pages
-    # -----------------------------------------------------------------------
-    (
-        "v1-bh-001",
-        F,
-        A,
-        DOC_BH,
-        [15, 16],
-        "Quais regiões produtoras são analisadas nas tabelas do livro?",
-        "O livro analisa as principais regiões produtoras brasileiras, com foco no "
-        "Centro-Oeste e Sul do Brasil, responsáveis pela maior parcela da produção de "
-        "grãos e carnes do país.",
-        None,
-    ),
-    (
-        "v1-bh-002",
-        F,
-        A,
-        DOC_BH,
-        [28, 29],
-        "Como são classificadas as propriedades rurais segundo os dados apresentados?",
-        "As propriedades são classificadas por tamanho (pequena, média e grande "
-        "propriedade) e por tipo de exploração (lavoura temporária, permanente, pecuária, "
-        "mista), com tabelas discriminando produção e área por categoria.",
-        None,
-    ),
-    (
-        "v1-bh-003",
-        M,
-        A,
-        DOC_BH,
-        [45, 46, 47],
-        "Como evoluiu a produção agrícola brasileira nas últimas décadas segundo os "
-        "dados do livro?",
-        "As tabelas demonstram crescimento expressivo da produção de grãos, com destaque "
-        "para soja e milho, impulsionado pela incorporação de novas áreas no Cerrado e "
-        "pela adoção de pacotes tecnológicos.",
-        None,
-    ),
-    (
-        "v1-bh-004",
-        M,
-        A,
-        DOC_BH,
-        [60, 61],
-        "Quais indicadores econômicos são utilizados para analisar o desempenho do setor rural?",
-        "O livro utiliza indicadores como valor bruto da produção (VBP), rentabilidade "
-        "por hectare, custo de produção por tonelada, relação custo-benefício e "
-        "participação no PIB agropecuário.",
-        None,
-    ),
-    (
-        "v1-bh-005",
-        M,
-        A,
-        DOC_BH,
-        [78, 79],
-        "Como a adoção de tecnologia afetou a produtividade agrícola segundo os dados do livro?",
-        "As tabelas mostram correlação positiva entre adoção de tecnologia (sementes "
-        "melhoradas, defensivos, máquinas) e produtividade por hectare, com ganhos mais "
-        "expressivos nas lavouras de soja e milho a partir dos anos 1990.",
-        None,
-    ),
-    (
-        "v1-bh-006",
-        F,
-        A,
-        DOC_BH,
-        [50, 51],
-        "Quais culturas predominam nas regiões estudadas pelo livro?",
-        "A soja é a cultura dominante nas análises, seguida de milho, algodão e "
-        "cana-de-açúcar, com distribuição regional que reflete as condições "
-        "edafoclimáticas e a infraestrutura logística de cada área.",
-        None,
-    ),
-    (
-        "v1-bh-007",
-        D,
-        A,
-        DOC_BH,
-        [95, 96, 97],
-        "Como o livro apresenta os custos de produção comparados entre diferentes culturas?",
-        "As tabelas comparativas de custo mostram que a cana-de-açúcar apresenta o maior "
-        "custo fixo por hectare, enquanto a soja tem o maior custo variável relativo, "
-        "com diferenças expressivas entre regiões em função do preço da terra e da "
-        "logística.",
-        None,
-    ),
-    (
-        "v1-bh-008",
-        M,
-        A,
-        DOC_BH,
-        [112, 113],
-        "Quais são as principais fontes de financiamento do agronegócio descritas no livro?",
-        "O livro descreve o crédito rural público (BCB, BNDES), a Letra de Crédito do "
-        "Agronegócio (LCA), o financiamento por tradings (barter), o CPR (Cédula de "
-        "Produto Rural) e os fundos privados como principais fontes de financiamento.",
-        None,
-    ),
-    (
-        "v1-bh-009",
-        D,
-        A,
-        DOC_BH,
-        [130, 131],
-        "Como o livro analisa a distribuição dos empregos no setor agrícola por tipo de atividade?",
-        "As tabelas indicam que a pecuária de corte e a cana-de-açúcar são os maiores "
-        "empregadores rurais em número absoluto, enquanto a soja tem a menor relação "
-        "emprego/hectare por conta da elevada mecanização.",
-        None,
-    ),
-    (
-        "v1-bh-010",
-        D,
-        A,
-        DOC_BH,
-        [155, 156],
-        "De que forma a exportação agrícola contribui para a balança comercial "
-        "brasileira segundo os dados?",
-        "Os dados mostram que o agronegócio responde por mais de 40% das exportações "
-        "totais do Brasil, com superávit comercial setorial que compensa déficits em "
-        "manufaturados e produtos de maior valor agregado.",
-        None,
-    ),
-    (
-        "v1-bh-011",
-        F,
-        A,
-        DOC_BH,
-        [160, 161],
-        "Quais são os principais destinos das exportações agrícolas brasileiras apresentados?",
-        "China, União Europeia e Estados Unidos são os principais destinos, com destaque "
-        "para a China como maior importadora de soja brasileira, conforme as tabelas de "
-        "comércio exterior.",
-        None,
-    ),
-    (
-        "v1-bh-012",
-        M,
-        A,
-        DOC_BH,
-        [200, 201],
-        "Como o livro caracteriza as tendências de mercado para o setor agrícola brasileiro?",
-        "O livro projeta crescimento da demanda global por proteínas animais e "
-        "biocombustíveis como vetores de expansão, com o Brasil como fornecedor central, "
-        "destacando riscos de dependência de commodities.",
-        None,
-    ),
-    (
-        "v1-bh-013",
-        F,
-        U,
-        DOC_BH,
-        [1],
-        "Qual é a cotação atual do bushel de soja na Bolsa de Chicago?",
-        None,
-        "Cotações de preços em tempo real não constam no livro; os dados apresentados "
-        "são históricos e de análise.",
-    ),
-    (
-        "v1-bh-014",
-        F,
-        U,
-        DOC_BH,
-        [1],
-        "Qual é o CNPJ das empresas agroindustriais mencionadas nas tabelas?",
-        None,
-        "Dados cadastrais como CNPJ de empresas não são fornecidos no texto.",
-    ),
-    (
-        "v1-bh-015",
-        M,
-        U,
-        DOC_BH,
-        [1],
-        "Quais são as projeções de preço da soja para os próximos dez anos?",
-        None,
-        "Projeções de preços de longo prazo não constam no livro; análises futuras não "
-        "são o foco do texto.",
-    ),
-    (
-        "v1-bh-016",
-        M,
-        U,
-        DOC_BH,
-        [1],
-        "Quais agricultores individuais foram entrevistados para compor a amostra do estudo?",
-        None,
-        "O livro não identifica agricultores individuais por nome; as análises são "
-        "baseadas em dados agregados e estatísticas setoriais.",
-    ),
-    (
-        "v1-bh-017",
-        D,
-        U,
-        DOC_BH,
-        [1],
-        "Qual é a estratégia comercial detalhada de cada empresa mencionada nas tabelas "
-        "de exportação?",
-        None,
-        "Estratégias comerciais detalhadas de empresas individuais não são apresentadas; "
-        "o livro trabalha com dados setoriais agregados.",
-    ),
-    (
-        "v1-bh-018",
-        D,
-        AP,
-        DOC_BH,
-        [210, 211, 230, 231],
-        "O agronegócio brasileiro é ambientalmente sustentável?",
-        "O texto apresenta dados sobre desmatamento associado à expansão agrícola e "
-        "sobre adoção de práticas como plantio direto e recuperação de pastagens, sem "
-        "concluir categóricamente sobre a sustentabilidade ambiental do setor.",
-        "Ambíguo: o livro apresenta indicadores contraditórios — expansão produtiva "
-        "versus passivo ambiental — sem emitir veredicto definitivo.",
-    ),
-    (
-        "v1-bh-019",
-        M,
-        AP,
-        DOC_BH,
-        [95, 96, 140, 141],
-        "Qual setor agrícola apresenta a maior rentabilidade segundo o livro?",
-        "As tabelas de rentabilidade mostram variações expressivas por cultura, região e "
-        "período; a rentabilidade máxima registrada varia por ciclo de preços, tornando "
-        "a resposta dependente do horizonte temporal analisado.",
-        "Parcial: a rentabilidade máxima é contextual e variável conforme período e "
-        "região, não havendo um único setor vencedor absoluto.",
-    ),
-    (
-        "v1-bh-020",
-        D,
-        AP,
-        DOC_BH,
-        [165, 166, 190, 191],
-        "Como se compara a eficiência produtiva da agricultura brasileira com a de "
-        "outros grandes exportadores?",
-        "O texto inclui comparações internacionais pontuais (com EUA e Argentina "
-        "principalmente), mas não um benchmark sistemático; as métricas utilizadas "
-        "variam por cultura e são incompatíveis para comparação direta.",
-        "Parcial: comparações internacionais são parciais e metodologicamente "
-        "heterogêneas no texto.",
-    ),
-    # -----------------------------------------------------------------------
-    # LIVRO  MUNDIALIZAÇÃO pronto.pdf — dense — 545 pages
-    # -----------------------------------------------------------------------
-    (
-        "v1-mu-001",
-        F,
-        A,
-        DOC_MU,
-        [25, 26],
-        "Como os autores definem 'mundialização do capital'?",
-        "Os autores definem mundialização do capital como o processo de integração global "
-        "das relações capitalistas de produção e troca, marcado pela mobilidade do "
-        "capital financeiro, pela formação de mercados globais e pela centralização do "
-        "capital em grandes grupos transnacionais.",
-        None,
-    ),
-    (
-        "v1-mu-002",
-        F,
-        A,
-        DOC_MU,
-        [18, 19],
-        "Qual é a diferença entre globalização e mundialização segundo o livro?",
-        "O texto distingue globalização (fenômeno cultural e comunicacional amplo) de "
-        "mundialização do capital (processo específico de integração das relações "
-        "capitalistas de produção em escala global), sendo este último o conceito "
-        "analítico central da obra.",
-        None,
-    ),
-    (
-        "v1-mu-003",
-        M,
-        A,
-        DOC_MU,
-        [55, 56, 57],
-        "Quais são os principais agentes da mundialização do capital identificados no livro?",
-        "Os principais agentes são as corporações transnacionais, os grandes fundos de "
-        "investimento (fundos de pensão e hedge funds), os bancos internacionais e as "
-        "instituições de Bretton Woods (FMI e Banco Mundial).",
-        None,
-    ),
-    (
-        "v1-mu-004",
-        M,
-        A,
-        DOC_MU,
-        [85, 86],
-        "Como a liberalização financeira criou condições para a mundialização do capital?",
-        "A liberalização financeira, ao eliminar controles de capitais e desregulamentar "
-        "mercados, permitiu a livre circulação de capital entre países, criando condições "
-        "para a mundialização ao conectar mercados financeiros nacionais em um sistema "
-        "global.",
-        None,
-    ),
-    (
-        "v1-mu-005",
-        M,
-        A,
-        DOC_MU,
-        [150, 151, 152],
-        "Qual é a relação entre mundialização e desigualdade social segundo o livro?",
-        "O livro argumenta que a mundialização do capital aprofunda a desigualdade tanto "
-        "entre países (concentrando riqueza nos centros hegemônicos) quanto dentro dos "
-        "países (pressionando salários e reduzindo Estado de bem-estar).",
-        None,
-    ),
-    (
-        "v1-mu-006",
-        D,
-        A,
-        DOC_MU,
-        [210, 211],
-        "Como o livro analisa a crise das dívidas soberanas no contexto da mundialização?",
-        "As crises de dívida soberana são apresentadas como consequência estrutural da "
-        "mundialização financeira: países periféricos se endividam para financiar déficits "
-        "estruturais, ficam sujeitos a condicionalidades do FMI e perdem soberania sobre "
-        "a política econômica nacional.",
-        None,
-    ),
-    (
-        "v1-mu-007",
-        F,
-        A,
-        DOC_MU,
-        [78, 79],
-        "Como o neoliberalismo se relaciona com a mundialização do capital no livro?",
-        "O neoliberalismo é apresentado como a forma político-ideológica que viabiliza a "
-        "mundialização do capital, ao promover privatizações, desregulamentação, "
-        "flexibilização do trabalho e redução do Estado que criam as condições "
-        "institucionais para a expansão global do capital.",
-        None,
-    ),
-    (
-        "v1-mu-008",
-        D,
-        A,
-        DOC_MU,
-        [185, 186, 187],
-        "Como as empresas transnacionais exploram as diferenças regulatórias entre "
-        "países na era da mundialização?",
-        "O livro descreve como as transnacionais fragmentam cadeias produtivas "
-        "globalmente, localizando produção em países com menor regulação trabalhista e "
-        "ambiental (race to the bottom), e utilizando preços de transferência e paraísos "
-        "fiscais para minimizar a carga tributária.",
-        None,
-    ),
-    (
-        "v1-mu-009",
-        M,
-        A,
-        DOC_MU,
-        [230, 231],
-        "Qual é o papel do FMI no processo de mundialização segundo o livro?",
-        "O FMI é apresentado como agente da mundialização ao impor condicionalidades de "
-        "ajuste estrutural que obrigam países devedores a liberalizar seus mercados, "
-        "privatizar empresas estatais e reduzir gastos sociais, integrando suas economias "
-        "ao mercado global nos termos dos países credores.",
-        None,
-    ),
-    (
-        "v1-mu-010",
-        D,
-        A,
-        DOC_MU,
-        [290, 291, 292],
-        "Como o livro analisa os efeitos da mundialização sobre os países do Sul Global?",
-        "O texto argumenta que a mundialização reproduz e aprofunda as assimetrias "
-        "históricas entre Norte e Sul, ao impor regras de liberalização que beneficiam "
-        "economias já industrializadas e ao drenar recursos dos países periféricos via "
-        "serviço da dívida e fuga de capitais.",
-        None,
-    ),
-    (
-        "v1-mu-011",
-        D,
-        A,
-        DOC_MU,
-        [120, 121, 122],
-        "Qual é a relação entre financeirização e a mundialização do capital segundo os autores?",
-        "A financeirização é apresentada como dimensão central e motor da mundialização: "
-        "ao tornar o capital financeiro a fração dominante do capital global, impõe "
-        "lógicas de curto prazo e extração de valor a toda a economia produtiva.",
-        None,
-    ),
-    (
-        "v1-mu-012",
-        M,
-        A,
-        DOC_MU,
-        [380, 381],
-        "Como o livro caracteriza a crise de 2008 no contexto da mundialização?",
-        "A crise de 2008 é apresentada como expressão das contradições internas da "
-        "mundialização financeira: a desregulamentação criou bolhas especulativas que, ao "
-        "estourar, exigiram salvamentos estatais bilionários, revertendo a retórica "
-        "neoliberal anti-Estado para socializar os prejuízos.",
-        None,
-    ),
-    (
-        "v1-mu-013",
-        F,
-        U,
-        DOC_MU,
-        [1],
-        "Qual é o PIB atual dos países do G20 mencionados no livro?",
-        None,
-        "Dados atuais de PIB não constam no texto; as referências econômicas são "
-        "históricas, referentes ao período de redação da obra.",
-    ),
-    (
-        "v1-mu-014",
-        F,
-        U,
-        DOC_MU,
-        [1],
-        "Qual é o endereço da sede do FMI descrito no livro?",
-        None,
-        "Informações logísticas sobre instituições não constam no texto analítico; o "
-        "FMI é discutido como agente político-econômico.",
-    ),
-    (
-        "v1-mu-015",
-        M,
-        U,
-        DOC_MU,
-        [1],
-        "Quais são as projeções dos autores para o crescimento do comércio internacional em 2030?",
-        None,
-        "Os autores não apresentam projeções quantitativas para 2030; o livro é de "
-        "análise estrutural, não de previsão econométrica.",
-    ),
-    (
-        "v1-mu-016",
-        M,
-        U,
-        DOC_MU,
-        [1],
-        "Qual é a composição acionária atual das empresas transnacionais mencionadas?",
-        None,
-        "Dados atualizados de composição acionária não constam no texto; eventuais "
-        "dados são históricos e de propósito ilustrativo.",
-    ),
-    (
-        "v1-mu-017",
-        D,
-        U,
-        DOC_MU,
-        [1],
-        "Qual é o salário atual dos pesquisadores que contribuíram para o livro?",
-        None,
-        "Informações remuneratórias pessoais dos autores e colaboradores não constam e "
-        "são irrelevantes para o conteúdo analítico.",
-    ),
-    (
-        "v1-mu-018",
-        D,
-        AP,
-        DOC_MU,
-        [430, 431, 500, 501],
-        "A mundialização do capital é um processo inevitável?",
-        "O texto descreve a mundialização como tendência estrutural do capitalismo, mas "
-        "também registra perspectivas de resistência e propostas alternativas de "
-        "regulação, sem concluir que seja absolutamente irreversível.",
-        "Ambíguo: o livro apresenta a mundialização como tendência poderosa, mas não "
-        "nega a possibilidade de resistência e regulação; a inevitabilidade não é "
-        "afirmada categoricamente.",
-    ),
-    (
-        "v1-mu-019",
-        M,
-        AP,
-        DOC_MU,
-        [480, 481, 510, 511],
-        "Quais alternativas à mundialização são propostas no livro?",
-        "O texto menciona alternativas como regulação internacional do capital, taxação "
-        "de transações financeiras (Tobin), governança multilateral e protecionismo "
-        "estratégico, mas sem aprofundar cada proposta de forma sistemática.",
-        "Parcial: alternativas são mencionadas, mas o livro é primariamente analítico e "
-        "não propositivo; o tratamento das alternativas é superficial.",
-    ),
-    (
-        "v1-mu-020",
-        D,
-        AP,
-        DOC_MU,
-        [300, 301, 350, 351],
-        "A mundialização beneficia ou prejudica os países emergentes no longo prazo?",
-        "O livro apresenta tanto casos de integração bem-sucedida de países emergentes "
-        "(Ásia Oriental) quanto de marginalização (África Subsaariana e partes da "
-        "América Latina), concluindo que o resultado depende da capacidade estatal e das "
-        "condições de inserção no sistema global.",
-        "Ambíguo: a resposta não é uniforme; o livro argumenta que o resultado depende "
-        "de condicionantes históricos, políticos e institucionais de cada país.",
-    ),
-    # -----------------------------------------------------------------------
-    # ph,+Gerente+da+editora,+cerrado-goiano.pdf — poor_scan — 100 pages
-    # -----------------------------------------------------------------------
-    (
-        "v1-cg-001",
-        F,
-        A,
-        DOC_CG,
-        [12, 13],
-        "Quais são as características biofísicas do cerrado goiano descritas no livro?",
-        "O cerrado goiano é caracterizado por vegetação savânica com estrato "
-        "arbustivo-arbóreo de baixo porte, solos profundos e ácidos (latossolos), clima "
-        "estacional (chuvas concentradas no verão e seca prolongada no inverno) e grande "
-        "biodiversidade.",
-        None,
-    ),
-    (
-        "v1-cg-002",
-        F,
-        A,
-        DOC_CG,
-        [28, 29],
-        "Como a pecuária se desenvolveu no cerrado goiano ao longo do tempo?",
-        "A pecuária foi pioneira na ocupação do cerrado goiano desde o período colonial, "
-        "utilizando as pastagens naturais do bioma; no século XX expandiu-se com o "
-        "melhoramento genético do rebanho e a introdução de braquiária como forrageira "
-        "exótica.",
-        None,
-    ),
-    (
-        "v1-cg-003",
-        M,
-        A,
-        DOC_CG,
-        [42, 43],
-        "Quais são as espécies vegetais nativas do cerrado com importância econômica "
-        "descritas no livro?",
-        "O livro descreve o pequi, o buriti, a mangaba, o baru e a cagaita como espécies "
-        "nativas de importância econômica para as populações do cerrado goiano, seja para "
-        "alimentação, extrativismo ou potencial agroindustrial.",
-        None,
-    ),
-    (
-        "v1-cg-004",
-        M,
-        A,
-        DOC_CG,
-        [55, 56, 57],
-        "Como a expansão da soja transformou o cerrado goiano a partir dos anos 1970?",
-        "A modernização agrícola dos anos 1970 (POLOCENTRO) e a adaptação da soja ao "
-        "clima tropical possibilitaram a rápida expansão da cultura no cerrado goiano, "
-        "com conversão de vegetação nativa em lavouras e deslocamento das populações "
-        "tradicionais.",
-        None,
-    ),
-    (
-        "v1-cg-005",
-        M,
-        A,
-        DOC_CG,
-        [65, 66],
-        "Quais são as principais ameaças ao bioma cerrado identificadas no livro?",
-        "O livro identifica como principais ameaças o desmatamento para conversão em "
-        "pastagens e lavouras, a fragmentação do habitat, a erosão dos solos, a "
-        "contaminação de aquíferos pelo uso de agrotóxicos e a homogeneização da "
-        "paisagem.",
-        None,
-    ),
-    (
-        "v1-cg-006",
-        F,
-        A,
-        DOC_CG,
-        [15, 16],
-        "Como é caracterizado o clima do cerrado goiano no livro?",
-        "O clima do cerrado goiano é tropical estacional, com precipitação anual entre "
-        "1.200 e 1.800 mm concentrada de outubro a março, e estação seca de maio a "
-        "setembro, com temperaturas médias anuais entre 22 e 26°C.",
-        None,
-    ),
-    (
-        "v1-cg-007",
-        M,
-        A,
-        DOC_CG,
-        [70, 71],
-        "Como o desmatamento afetou os recursos hídricos no cerrado goiano?",
-        "O livro descreve redução na recarga dos aquíferos, assoreamento de rios e "
-        "diminuição das nascentes em áreas desmatadas, com impacto direto sobre a "
-        "disponibilidade de água para agricultura, pecuária e abastecimento humano.",
-        None,
-    ),
-    (
-        "v1-cg-008",
-        D,
-        A,
-        DOC_CG,
-        [78, 79, 80],
-        "Quais políticas de conservação do cerrado são discutidas no livro e qual sua efetividade?",
-        "O livro discute o Código Florestal (reserva legal de 20% no cerrado), o "
-        "PPCerrado (Plano de Ação para Prevenção e Controle do Desmatamento no Cerrado) "
-        "e a criação de unidades de conservação, avaliando sua implementação parcial e "
-        "limitada por pressões do agronegócio.",
-        None,
-    ),
-    (
-        "v1-cg-009",
-        D,
-        A,
-        DOC_CG,
-        [85, 86, 87],
-        "Como o livro analisa a relação entre o agronegócio e as populações tradicionais "
-        "do cerrado goiano?",
-        "O livro descreve conflitos entre a expansão do agronegócio e as comunidades "
-        "quilombolas, indígenas e agricultores familiares do cerrado, com pressão sobre "
-        "territórios tradicionais, contaminação de fontes de água e destruição de "
-        "recursos extrativistas.",
-        None,
-    ),
-    (
-        "v1-cg-010",
-        F,
-        A,
-        DOC_CG,
-        [35, 36],
-        "Qual é a importância econômica do cerrado goiano para o estado de Goiás?",
-        "O cerrado goiano sustenta a economia do estado com produção de grãos (soja, "
-        "milho, feijão), pecuária bovina, suinocultura e avicultura, representando "
-        "parcela expressiva do PIB estadual e das exportações de Goiás.",
-        None,
-    ),
-    (
-        "v1-cg-011",
-        D,
-        A,
-        DOC_CG,
-        [18, 19, 20],
-        "Como são caracterizados os solos do cerrado goiano e suas peculiaridades para "
-        "a agricultura?",
-        "Os solos do cerrado são profundos, bem drenados e predominantemente latossolos, "
-        "porém naturalmente ácidos e pobres em nutrientes, o que exigiu tecnologia de "
-        "correção (calagem) e fertilização intensa para viabilizar lavouras de alta "
-        "produtividade.",
-        None,
-    ),
-    (
-        "v1-cg-012",
-        M,
-        A,
-        DOC_CG,
-        [58, 59],
-        "Como a Embrapa contribuiu para a transformação agrícola do cerrado goiano?",
-        "A Embrapa desenvolveu cultivares de soja adaptadas ao fotoperíodo e clima "
-        "tropical, tecnologias de correção de solos e sistemas de plantio direto, "
-        "tornando o cerrado cultivável para grãos temperados e viabilizando a fronteira "
-        "agrícola no Centro-Oeste.",
-        None,
-    ),
-    (
-        "v1-cg-013",
-        F,
-        U,
-        DOC_CG,
-        [1],
-        "Qual é o nome completo e o cargo atual do gerente da editora mencionado no "
-        "título do documento?",
-        None,
-        "O nome completo e cargo atual do gerente da editora não são esclarecidos no "
-        "próprio texto; o título referencia uma função editorial, não um conteúdo "
-        "analisado.",
-    ),
-    (
-        "v1-cg-014",
-        F,
-        U,
-        DOC_CG,
-        [1],
-        "Qual é o preço por hectare de terra no cerrado goiano em 2026?",
-        None,
-        "Preços atuais de terra no mercado imobiliário rural não constam no livro; "
-        "eventuais dados são históricos.",
-    ),
-    (
-        "v1-cg-015",
-        M,
-        U,
-        DOC_CG,
-        [1],
-        "Quais são as projeções de desmatamento do cerrado goiano para 2030 segundo o livro?",
-        None,
-        "O livro não apresenta projeções quantitativas de desmatamento para 2030; a "
-        "análise é de situação presente e histórica.",
-    ),
-    (
-        "v1-cg-016",
-        M,
-        U,
-        DOC_CG,
-        [1],
-        "Qual é o número exato de fazendas atualmente registradas no cerrado goiano?",
-        None,
-        "Dados cadastrais atualizados sobre número de fazendas não constam no texto; "
-        "eventuais dados são históricos e ilustrativos.",
-    ),
-    (
-        "v1-cg-017",
-        D,
-        U,
-        DOC_CG,
-        [1],
-        "Qual é a análise laboratorial de metais pesados nos aquíferos do cerrado "
-        "goiano citada no livro?",
-        None,
-        "Análises laboratoriais específicas de metais pesados em aquíferos não são "
-        "apresentadas; o texto trata do tema de forma descritiva sem dados analíticos "
-        "detalhados.",
-    ),
-    (
-        "v1-cg-018",
-        D,
-        AP,
-        DOC_CG,
-        [60, 61, 88, 89],
-        "O desenvolvimento agrícola do cerrado goiano foi positivo para a região e sua população?",
-        "O livro apresenta ganhos econômicos para grandes produtores e o estado de "
-        "Goiás, mas também os custos ambientais e sociais para populações tradicionais, "
-        "sem emitir juízo definitivo sobre o saldo geral do desenvolvimento agrícola.",
-        "Ambíguo: os benefícios econômicos e os custos socioambientais são apresentados "
-        "paralelamente, sem avaliação final de custo-benefício.",
-    ),
-    (
-        "v1-cg-019",
-        M,
-        AP,
-        DOC_CG,
-        [44, 45, 75, 76],
-        "Quais são as espécies mais ameaçadas do cerrado goiano?",
-        "O livro cita algumas espécies ameaçadas (como o lobo-guará e o "
-        "tamanduá-bandeira) sem oferecer uma lista completa ou ordenada por grau de "
-        "ameaça; a listagem é ilustrativa, não exaustiva.",
-        "Parcial: o texto menciona exemplos de espécies ameaçadas mas não apresenta uma "
-        "listagem sistemática e hierarquizada.",
-    ),
-    (
-        "v1-cg-020",
-        D,
-        AP,
-        DOC_CG,
-        [30, 31, 92, 93],
-        "Como o cerrado goiano se compara ao restante do bioma cerrado em termos de conservação?",
-        "O texto inclui comparações pontuais com Mato Grosso e Minas Gerais, indicando "
-        "que Goiás tem taxa de desmatamento acumulado similar ao restante do bioma, mas "
-        "sem análise comparativa sistemática entre estados.",
-        "Parcial: a comparação com outros estados é mencionada mas não desenvolvida "
-        "metodicamente; os dados são fragmentados.",
+        "A maioria era negra (61,0%) e apenas 44,9% tinham carteira de trabalho assinada.",
+        [200],
+        [
+            "A grande maioria dessas trabalhadoras eram negras (61,0%) e apenas "
+            "44,9% do total dessas mulheres tinha carteira do trabalho assinada "
+            "(DIEESE, 2013).",
+        ],
+    ),
+    item(
+        "v1-ha-010",
+        "answerable",
+        "dificil",
+        DOC_HA,
+        "Sob quais condições, segundo o texto, a intensificação agrícola tenderia "
+        "a se acelerar em regiões de colonização?",
+        "Somente à medida que a terra se tornasse escassa, de difícil acesso à "
+        "propriedade ou ao seu usufruto.",
+        [265],
+        [
+            "haveria poucos incentivos para a intensificação em regiões de "
+            "colonização, a qual se aceleraria somente à medida que a terra se "
+            "tornasse escassa, de difícil acesso à propriedade, ou de seu usufruto",
+        ],
+    ),
+    item(
+        "v1-ha-011",
+        "answerable",
+        "dificil",
+        DOC_HA,
+        "Qual é a meta das unidades domésticas rurais em relação ao trabalho, aos "
+        "recursos e ao produto?",
+        "Conseguir o ajuste mais favorável possível entre capacidade de trabalho, "
+        "recursos materiais e produto gerado.",
+        [285],
+        [
+            "sua meta é conseguir o ajuste mais favorável que lhes seja possível "
+            "entre capacidade de trabalho, recursos materiais e produto gerado",
+        ],
+    ),
+    item(
+        "v1-ha-012",
+        "answerable",
+        "medio",
+        DOC_HA,
+        "O que os dados indicam sobre a população rural do Nordeste brasileiro entre 2000 e 2010?",
+        "O Nordeste, que concentra quase metade da população rural do país, "
+        "perdeu mais de 500 mil habitantes em áreas rurais no período.",
+        [200],
+        [
+            "O Nordeste brasileiro, que concentra quase a metade da população "
+            "rural do Brasil (14,3 milhões), perdeu mais de 500 mil habitantes em "
+            "áreas rurais entre 2000 e 2010.",
+        ],
+    ),
+    item(
+        "v1-ha-013",
+        "ambiguous_partial",
+        "medio",
+        DOC_HA,
+        "As políticas de imigração europeia adotadas pelo Brasil no século XIX "
+        "foram bem-sucedidas em substituir a mão de obra escrava?",
+        "O texto observa apenas que as práticas de aquisição de europeus não "
+        "haviam logrado êxito, sem oferecer uma avaliação conclusiva do resultado "
+        "da política imigratória.",
+        [160],
+        [
+            "era preciso observar as práticas aplicadas na aquisição dos europeus "
+            "porque estas não haviam logrado êxitos",
+        ],
+        notas=(
+            "Parcial: o trecho comenta a falta de êxito das práticas de aquisição "
+            "de imigrantes europeus, mas não avalia o desfecho geral da política "
+            "de imigração, o que impede uma resposta definitiva."
+        ),
+    ),
+    item(
+        "v1-ha-014",
+        "ambiguous_partial",
+        "dificil",
+        DOC_HA,
+        "A terceirização na Copener reduziu o número de trabalhadores diretos da empresa?",
+        "O trecho registra que, em 2010, os trabalhadores diretos passaram de "
+        "cerca de 100 para cerca de 600 em razão da primarização, o que responde "
+        "apenas parcialmente ao efeito da terceirização sobre o emprego.",
+        [120],
+        [
+            "Em 2010 a Copener passou de aproximadamente 100 para aproximadamente "
+            "600 trabalhadores (BSC, 2010).",
+        ],
+        notas=(
+            "Parcial: o dado citado refere-se a um aumento pontual ligado à "
+            "'primarização' do plantio e da colheita, e não a uma medida geral do "
+            "efeito da terceirização sobre o total de empregos."
+        ),
+    ),
+    item(
+        "v1-ha-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_HA,
+        "O texto apresenta uma solução concreta e efetivada para os problemas de "
+        "saúde das comunidades quilombolas?",
+        "Não: registra que a requisição de um Posto de Saúde da Família é feita "
+        "desde o fim da década de 1990 sem sucesso, indicando o problema mas não "
+        "uma solução concretizada.",
+        [70],
+        [
+            "a requisição do Posto de Saúde da Família (PSF) já está sendo feita "
+            "desde o final da década de 1990, porém sem sucesso",
+        ],
+        notas=(
+            "Parcial: o corpus descreve a demanda não atendida e o preconceito "
+            "institucional, mas não apresenta uma solução efetivamente implementada."
+        ),
+    ),
+    item(
+        "v1-ha-016",
+        "unanswerable",
+        "facil",
+        DOC_HA,
+        "Qual é a taxa de juros do PRONAF para o custeio da safra 2025/2026?",
+        notas=(
+            "Não respondível: a coletânea é historiográfica, sobre conflitos e "
+            "resistências no mundo rural, e não traz taxas de juros de programas de "
+            "crédito atuais como o PRONAF."
+        ),
+    ),
+    item(
+        "v1-ha-017",
+        "unanswerable",
+        "medio",
+        DOC_HA,
+        "Quais são os requisitos legais para a certificação de produtos orgânicos "
+        "no Brasil segundo a Lei 10.831/2003?",
+        notas=(
+            "Não respondível: o corpus não trata da legislação de certificação de "
+            "produtos orgânicos nem de seus requisitos."
+        ),
+    ),
+    item(
+        "v1-ha-018",
+        "unanswerable",
+        "medio",
+        DOC_HA,
+        "Qual foi a produção de soja, em toneladas, do estado de Mato Grosso na safra 2020/2021?",
+        notas=(
+            "Não respondível: o livro não apresenta estatísticas de produção de "
+            "soja por estado e safra."
+        ),
+    ),
+    item(
+        "v1-ha-019",
+        "unanswerable",
+        "facil",
+        DOC_HA,
+        "Como configurar um sistema de irrigação por gotejamento em uma horta comercial?",
+        notas=(
+            "Não respondível: trata-se de conteúdo técnico-agronômico de manejo, "
+            "ausente desta obra de história agrária."
+        ),
+    ),
+    item(
+        "v1-ha-020",
+        "unanswerable",
+        "dificil",
+        DOC_HA,
+        "Quais políticas de reforma agrária foram implementadas pelo governo "
+        "federal brasileiro em 2023?",
+        notas=(
+            "Não respondível: a obra não cobre o período nem descreve políticas "
+            "federais de reforma agrária de 2023."
+        ),
     ),
 ]
 
+# ---------------------------------------------------------------------------
+# historia-das-agriculturas-no-mundo — narrative — 569 pages
+# ---------------------------------------------------------------------------
+MA_ITEMS: list[dict] = [
+    item(
+        "v1-ma-001",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Qual é o rendimento típico das agriculturas que nunca acederam às "
+        "revoluções agrícolas modernas?",
+        "São rendimentos inferiores a 1.000 kg de equivalente-cereal por hectare "
+        "— o milheto, por exemplo, rende no máximo cerca de 800 kg por hectare.",
+        [30],
+        [
+            "Os rendimentos obtidos nessas condições são inferiores a 1.000 kg de "
+            "equivalente-cereal por hectare (por exemplo, o rendimento médio do "
+            "milheto no mundo atual é de, quando muito, 800 kg por hectare).",
+        ],
+    ),
+    item(
+        "v1-ma-002",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "O que os autores designam pelo termo 'valência ecológica'?",
+        "A faculdade de uma espécie de ocupar meios variados e também sua aptidão "
+        "para povoá-los mais ou menos densamente.",
+        [55],
+        [
+            "Ele designará não apenas a faculdade de uma espécie em ocupar meios "
+            "variados, mas ainda sua aptidão em povoá-los mais ou menos densamente.",
+        ],
+    ),
+    item(
+        "v1-ma-003",
+        "answerable",
+        "dificil",
+        DOC_MA,
+        "Quando um ecossistema está em equilíbrio, segundo o texto?",
+        "Quando a matéria orgânica produzida a cada ano pela fotossíntese iguala "
+        "a destruída pela respiração e pela decomposição.",
+        [80],
+        [
+            "Um ecossistema está em equilíbrio quando a quantidade de matéria "
+            "orgânica produzida a cada ano pela fotossíntese é igual à quantidade "
+            "de matéria orgânica destruída pela respiração e pela decomposição do "
+            "leito.",
+        ],
+    ),
+    item(
+        "v1-ma-004",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Como é feita a repartição das parcelas no afolhamento regulado dos "
+        "cultivadores de mandioca perto de Brazzaville?",
+        "A cada ano, a folha de pousio mais antiga é subdividida em parcelas "
+        "quadrangulares justapostas e repartida entre as famílias para desmate e "
+        "cultivo de mandioca.",
+        [140],
+        [
+            "A cada ano, a folha com pousio mais antiga (f10) é subdividida em "
+            "parcelas justapostas e quadrangulares e repartidas entre as famílias "
+            "para serem desmatadas e cultivadas com a mandioca.",
+        ],
+    ),
+    item(
+        "v1-ma-005",
+        "answerable",
+        "facil",
+        DOC_MA,
+        "O que se chama de 'folha' em um sistema de cultivo?",
+        "O conjunto de parcelas que se encontram, em dado momento, no mesmo "
+        "estágio de cultivo ou de pousio.",
+        [140],
+        [
+            "É chamada folha o conjunto de parcelas que se encontram num dado "
+            "momento no mesmo estágio de cultivo ou de pousio.",
+        ],
+    ),
+    item(
+        "v1-ma-006",
+        "answerable",
+        "dificil",
+        DOC_MA,
+        "Como o texto descreve o ritmo histórico vivido pelo Egito faraônico?",
+        "As fases de prosperidade alternavam-se com períodos de crise e de decadência.",
+        [200],
+        [
+            "Mas essas fases de prosperidade alternavam-se com períodos de crise e de decadência.",
+        ],
+    ),
+    item(
+        "v1-ma-007",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Que medidas o legislador Sólon adotou em Atenas no início do século VI a.C.?",
+        "Exonerou os camponeses servos de seus encargos e proibiu a servidão por "
+        "dívida e a venda de crianças como escravos.",
+        [288],
+        [
+            "o legislador Sólon exonerou os camponeses servos de seus pesados "
+            "encargos e proibiu a servidão por dívida e a venda de crianças como "
+            "escravos",
+        ],
+    ),
+    item(
+        "v1-ma-008",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Qual era o caráter inicial da colonização grega descrita no texto?",
+        "Foi a princípio agrária, exercida em planícies mais extensas, férteis e "
+        "menos povoadas que as da Grécia.",
+        [288],
+        [
+            "Essa colonização foi a princípio agrária, exercida nas planícies "
+            "geralmente mais extensas, mais férteis e menos superpovoadas que as "
+            "da Grécia.",
+        ],
+    ),
+    item(
+        "v1-ma-009",
+        "answerable",
+        "dificil",
+        DOC_MA,
+        "Em que meses ocorrem geadas na região andina estudada?",
+        "Ocorrem todas as noites em junho e julho, podendo ainda ocorrer "
+        "esporadicamente em março e novembro.",
+        [230],
+        [
+            "Todas as noites em junho e julho ocorrem geadas, podendo ainda "
+            "ocorrer esporadicamente em março e em novembro.",
+        ],
+    ),
+    item(
+        "v1-ma-010",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Como a indústria transformou os transportes no contexto da segunda revolução agrícola?",
+        "Com as estradas de ferro e os barcos a vapor, revolucionou os "
+        "transportes transcontinentais e transoceânicos.",
+        [400],
+        [
+            "Paralelamente, com as estradas de ferro e os barcos a vapor, a "
+            "indústria revolucionou os transportes transcontinentais e "
+            "transoceânicos.",
+        ],
+    ),
+    item(
+        "v1-ma-011",
+        "answerable",
+        "medio",
+        DOC_MA,
+        "Quantos calendários agrícolas dos séculos XII e XIII Perrine Mane estudou?",
+        "Estudou cento e vinte e sete calendários datados dos séculos XII e XIII "
+        "na França e na Itália.",
+        [320],
+        [
+            "Perrine Mane (1983) estuda cento e vinte sete calendários datados dos "
+            "séculos XII e XIII na França e na Itália",
+        ],
+    ),
+    item(
+        "v1-ma-012",
+        "answerable",
+        "dificil",
+        DOC_MA,
+        "Qual é o argumento do texto sobre a agricultura camponesa e a "
+        "modernização dos países pobres?",
+        "A agricultura camponesa, mais produtiva, será capaz de suportar o custo "
+        "da modernização e da industrialização dos países pobres.",
+        [540],
+        [
+            "a agricultura camponesa, nitidamente mais produtiva, será capaz de "
+            "suportar o custo da modernização e da industrialização dos países "
+            "pobres",
+        ],
+    ),
+    item(
+        "v1-ma-013",
+        "ambiguous_partial",
+        "medio",
+        DOC_MA,
+        "Os sistemas de cultivo de derrubada-queimada deixaram de existir?",
+        "Não totalmente: o texto indica que ainda existem, mas estão hoje "
+        "ameaçados pela concorrência de agriculturas mais poderosas.",
+        [170],
+        [
+            "esses sistemas estão hoje ameaçados pela concorrência econômica das "
+            "agriculturas mais poderosas",
+        ],
+        notas=(
+            "Parcial: o corpus afirma que tais sistemas persistem, mas coloca sua "
+            "sobrevivência como questão aberta e urgente, sem um desfecho."
+        ),
+    ),
+    item(
+        "v1-ma-014",
+        "ambiguous_partial",
+        "dificil",
+        DOC_MA,
+        "As políticas europeias garantiram a modernização agrícola de forma "
+        "homogênea entre os arrendatários?",
+        "O texto cita leis que garantiam contratos de arrendamento de longa "
+        "duração, mas ressalva que a eficácia foi amplamente condicionada, sem "
+        "afirmar homogeneidade.",
+        [480],
+        [
+            "leis garantiam aos arrendatários contratos de locação de terras de "
+            "longa duração regularmente renovados",
+        ],
+        notas=(
+            "Parcial: a passagem lista condições que 'amplamente condicionaram' a "
+            "eficiência das medidas, de modo que o resultado não é apresentado "
+            "como uniforme."
+        ),
+    ),
+    item(
+        "v1-ma-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_MA,
+        "A religião teve papel na criação das novas regras de vida das primeiras "
+        "sociedades agrícolas?",
+        "O texto apenas conjectura que a religião emergente pode ter tido um "
+        "papel na instauração dessas regras, sem afirmá-lo com certeza.",
+        [110],
+        [
+            "pode-se pensar que a religião emergente teve um papel na instauração "
+            "dessas novas regras de vida",
+        ],
+        notas=(
+            "Parcial: a afirmação é apresentada como hipótese ('pode-se pensar'), "
+            "não como fato estabelecido."
+        ),
+    ),
+    item(
+        "v1-ma-016",
+        "unanswerable",
+        "facil",
+        DOC_MA,
+        "Qual é a produtividade média de milho por hectare no Cerrado brasileiro "
+        "com transgênicos em 2023?",
+        notas=(
+            "Não respondível: a obra é uma história global das agriculturas e não "
+            "apresenta dados recentes de produtividade brasileira."
+        ),
+    ),
+    item(
+        "v1-ma-017",
+        "unanswerable",
+        "medio",
+        DOC_MA,
+        "Quais cultivares de trigo são recomendadas para o clima subtropical do sul do Brasil?",
+        notas=(
+            "Não respondível: o corpus não é um manual agronômico de recomendação de cultivares."
+        ),
+    ),
+    item(
+        "v1-ma-018",
+        "unanswerable",
+        "medio",
+        DOC_MA,
+        "Qual foi o volume de exportações agrícolas da União Europeia em 2022?",
+        notas=(
+            "Não respondível: o livro não traz estatísticas de comércio agrícola "
+            "recente da União Europeia."
+        ),
+    ),
+    item(
+        "v1-ma-019",
+        "unanswerable",
+        "facil",
+        DOC_MA,
+        "Como funciona um trator com piloto automático por GPS?",
+        notas=(
+            "Não respondível: tecnologia de maquinário agrícola atual não é "
+            "objeto desta obra histórica."
+        ),
+    ),
+    item(
+        "v1-ma-020",
+        "unanswerable",
+        "dificil",
+        DOC_MA,
+        "Qual é a taxa interna de retorno de um investimento em irrigação por "
+        "pivô central no Matopiba?",
+        notas=(
+            "Não respondível: o corpus não realiza análise financeira de projetos "
+            "de irrigação nessa região."
+        ),
+    ),
+]
 
-def build_items() -> list[dict]:
-    items = []
-    for row in ITEMS_RAW:
-        item_id, diff, tipo, doc, pages, pergunta, resposta, notas = row
-        entry: dict = {
-            "id": item_id,
-            "pergunta": pergunta,
-            "resposta_referencia": resposta,
-            "documento": doc,
-            "paginas_esperadas": pages,
-            "tipo": tipo,
-            "dificuldade": diff,
-            "review_status": "draft",
-        }
-        if notas:
-            entry["notas"] = notas
-        items.append(entry)
-    return items
+# ---------------------------------------------------------------------------
+# Políticas-públicas-agricultura-familiar-e-sustentabilidade — table_heavy — 214
+# ---------------------------------------------------------------------------
+PP_ITEMS: list[dict] = [
+    item(
+        "v1-pp-001",
+        "answerable",
+        "facil",
+        DOC_PP,
+        "Em que período a expressão 'agricultura familiar' ganhou força no contexto brasileiro?",
+        "Ganhou força em meados da década de 1990.",
+        [20],
+        [
+            "a expressão agricultura familiar toma força, no contexto brasileiro, "
+            "em meados da década de 90 (DENARDI, 2001; SCHNEIDER, 2003).",
+        ],
+    ),
+    item(
+        "v1-pp-002",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "Qual a participação dos produtos agrícolas no total das importações "
+        "brasileiras, segundo o texto?",
+        "Apenas 5% do total das importações brasileiras, na média dos últimos "
+        "três anos, são de produtos agrícolas.",
+        [20],
+        [
+            "apenas 5% do total das importações brasileiras (na média dos últimos "
+            "três anos) são de produtos agrícolas",
+        ],
+    ),
+    item(
+        "v1-pp-003",
+        "answerable",
+        "facil",
+        DOC_PP,
+        "Qual programa é apontado como marco de entrada da agricultura familiar "
+        "na agenda de políticas públicas brasileiras?",
+        "O PRONAF é apontado como esse marco de entrada.",
+        [70],
+        [
+            "O PRONAF foi pautado como marco de entrada da agricultura familiar na "
+            "agenda de políticas públicas brasileiras (HAWKES et al., 2016).",
+        ],
+    ),
+    item(
+        "v1-pp-004",
+        "answerable",
+        "dificil",
+        DOC_PP,
+        "O que precede a implementação de uma política pública, segundo o texto sobre o Plano ABC?",
+        "A interpretação da política pelos burocratas de nível de rua.",
+        [55],
+        [
+            "O processo de implementação de uma política pública é precedido pela "
+            "interpretação dessa política pelos burocratas de nível de rua.",
+        ],
+    ),
+    item(
+        "v1-pp-005",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "Qual município se destaca com a maior área de lavoura permanente "
+        "colhida, segundo a figura apresentada?",
+        "O município de Itaguaí, com 1.271 hectares de lavoura permanente colhida.",
+        [85],
+        [
+            "o município de Itaguaí se destaca com uma área de lavoura permanente "
+            "colhida de 1.271 hectares",
+        ],
+    ),
+    item(
+        "v1-pp-006",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "Como Bonnal, Cazella e Maluf (2008) apresentam a agricultura familiar?",
+        "Como um modelo propício para a pluriatividade rural e a "
+        "multifuncionalidade da agricultura.",
+        [85],
+        [
+            "é apresentada por Bonnal, Cazella e Maluf (2008) como um modelo "
+            "propício para a pluriatividade rural e a multifuncionalidade da "
+            "agricultura",
+        ],
+    ),
+    item(
+        "v1-pp-007",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "Quantas variedades de fava crioula foram utilizadas no estudo e de onde foram obtidas?",
+        "Dez variedades de fava crioula, obtidas do banco de sementes do "
+        "Laboratório de Sementes do IFPB, Campus Picuí.",
+        [100],
+        [
+            "Utilizou-se dez variedades de favas (Phaseulos lunatus L.) crioulas, "
+            "que foram obtidas do banco de sementes do Laboratório de Sementes do "
+            "IFPB, Campus Picuí.",
+        ],
+    ),
+    item(
+        "v1-pp-008",
+        "answerable",
+        "facil",
+        DOC_PP,
+        "Qual é o perfil de estado civil dos assentados do assentamento Fortuna 1?",
+        "14% são solteiros, 38% são separados e 48% são casados.",
+        [110],
+        [
+            "Dos assentados do assentamento Fortuna 1, 14% são solteiros, 38% são "
+            "separados e 48% casados.",
+        ],
+    ),
+    item(
+        "v1-pp-009",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "Quando o direito ao voto feminino foi conquistado no Reino Unido, segundo o texto?",
+        "Em 1918.",
+        [165],
+        [
+            "O direito ao voto foi conquistado no Reino Unido em 1918 (PINTO, 2009).",
+        ],
+    ),
+    item(
+        "v1-pp-010",
+        "answerable",
+        "dificil",
+        DOC_PP,
+        "Que episódio envolvendo a feminista Emily Davison é relatado no texto?",
+        "Em 1913, na corrida de cavalos em Derby, ela se atirou à frente do "
+        "cavalo do Rei e morreu.",
+        [165],
+        [
+            "Em 1913, na famosa corrida de cavalo em Derby, a feminista Emily "
+            "Davison atirou-se à frente do cavalo do Rei, morrendo.",
+        ],
+    ),
+    item(
+        "v1-pp-011",
+        "answerable",
+        "facil",
+        DOC_PP,
+        "Que tipo de ação o MST promove, segundo o texto?",
+        "Ações educativas de cuidado com o solo e com as plantações.",
+        [205],
+        [
+            "O MST promove ações educativas de cuidados com o solo e com as plantações.",
+        ],
+    ),
+    item(
+        "v1-pp-012",
+        "answerable",
+        "medio",
+        DOC_PP,
+        "A que se relaciona a subcategoria 'Processos' na avaliação do PNAE?",
+        "Aglutina atributos político-administrativos de implementação e avaliação do PNAE.",
+        [70],
+        [
+            "A subcategoria Processos aglutina atributos político-administrativos "
+            "de implementação e avaliação do PNAE.",
+        ],
+    ),
+    item(
+        "v1-pp-013",
+        "ambiguous_partial",
+        "medio",
+        DOC_PP,
+        "A agroecologia é apenas uma técnica de produção agrícola?",
+        "O artigo indica que a agroecologia é mais do que criar ou inovar um "
+        "sistema de produção agrícola, mas a definição plena é desenvolvida ao "
+        "longo do texto.",
+        [195],
+        [
+            "O artigo indica que a agroecologia é mais do que criar ou inovar um "
+            "sistema de produção agrícola.",
+        ],
+        notas=(
+            "Parcial: a passagem afirma que a agroecologia é 'mais do que' um "
+            "sistema de produção, mas não esgota a definição, construída ao longo "
+            "do artigo."
+        ),
+    ),
+    item(
+        "v1-pp-014",
+        "ambiguous_partial",
+        "dificil",
+        DOC_PP,
+        "Existe uma definição única de agricultura familiar no texto?",
+        "Não: o texto afirma que não há uma conceituação única e que as "
+        "apropriações do conceito abrangem diferentes percepções.",
+        [85],
+        [
+            "Notoriamente, não há uma conceituação única, e é importante destacar "
+            "que as apropriações destes conceitos abrangem diferentes percepções e "
+            "concepções sobre as diferentes formas e práticas da produção rural.",
+        ],
+        notas=(
+            "Parcial: o próprio corpus declara a ausência de conceituação única, "
+            "de modo que não há resposta fechada."
+        ),
+    ),
+    item(
+        "v1-pp-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_PP,
+        "Há consenso entre atores políticos e implementadores do Plano ABC sobre "
+        "o que é mudança climática?",
+        "Não: o texto indica que não há compartilhamento de significados entre "
+        "esses atores, embora o trecho não detalhe todas as razões.",
+        [55],
+        [
+            "Não há um compartilhamento de significados entre os atores políticos "
+            "e os implementadores do Plano ABC",
+        ],
+        notas=(
+            "Parcial: a frase é interrompida ('visto que') e apenas assinala a "
+            "ausência de significado compartilhado, sem exposição completa."
+        ),
+    ),
+    item(
+        "v1-pp-016",
+        "unanswerable",
+        "facil",
+        DOC_PP,
+        "Qual é a alíquota do ICMS sobre produtos da agricultura familiar no "
+        "estado de São Paulo em 2024?",
+        notas=(
+            "Não respondível: a coletânea não trata de alíquotas tributárias "
+            "estaduais nem de sua vigência atual."
+        ),
+    ),
+    item(
+        "v1-pp-017",
+        "unanswerable",
+        "medio",
+        DOC_PP,
+        "Quantos hectares de café foram colhidos em Minas Gerais na safra de 2021?",
+        notas=(
+            "Não respondível: o corpus não apresenta estatísticas de área colhida "
+            "de café por estado e safra."
+        ),
+    ),
+    item(
+        "v1-pp-018",
+        "unanswerable",
+        "medio",
+        DOC_PP,
+        "Quais são os critérios de acesso ao Plano Safra 2024/2025 anunciado pelo governo federal?",
+        notas=("Não respondível: trata-se de política posterior e específica, ausente desta obra."),
+    ),
+    item(
+        "v1-pp-019",
+        "unanswerable",
+        "facil",
+        DOC_PP,
+        "Como fazer compostagem doméstica de resíduos orgânicos, passo a passo?",
+        notas=("Não respondível: o corpus não é um manual prático de compostagem."),
+    ),
+    item(
+        "v1-pp-020",
+        "unanswerable",
+        "dificil",
+        DOC_PP,
+        "Qual é o coeficiente de Gini da distribuição de terras no Brasil segundo "
+        "o Censo Agropecuário de 2017?",
+        notas=(
+            "Não respondível: o índice de concentração fundiária do Censo de 2017 "
+            "não é apresentado nesta obra."
+        ),
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# buhler-9786557250044 — table_heavy — 277 pages
+# ---------------------------------------------------------------------------
+BH_ITEMS: list[dict] = [
+    item(
+        "v1-bh-001",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Como o autor caracteriza a inclusão dos pequenos produtores integrados à "
+        "produção de soja?",
+        "Como uma inclusão discriminatória, marcada por forte subordinação dos "
+        "pequenos produtores.",
+        [20],
+        [
+            "tal inclusão é discriminatória e o que se verifica é uma forte "
+            "subordinação dos pequenos produtores que estão integrados à produção "
+            "de soja",
+        ],
+    ),
+    item(
+        "v1-bh-002",
+        "answerable",
+        "dificil",
+        DOC_BH,
+        "Por que os produtores de grãos acabam pagando pelo frete mais caro, segundo o texto?",
+        "Porque sempre pagam pelo maior frete — modal mais caro e porto mais "
+        "distante —, ainda que os grãos sejam retirados por combinação menos "
+        "onerosa.",
+        [95],
+        [
+            "eles sempre pagam pelo maior frete (modal mais caro e porto mais "
+            "distante), ainda que seus grãos sejam retirados por uma combinação "
+            "modal menos onerosa",
+        ],
+    ),
+    item(
+        "v1-bh-003",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Que problema a ALL cria para os terminais concorrentes, segundo o texto?",
+        "Estabelece concorrência desleal, pois tem o poder de decidir onde será "
+        "feita a montagem e a saída das composições com os grãos.",
+        [95],
+        [
+            "a ALL estabelece uma concorrência desleal com as empresas que operam "
+            "os demais terminais, pois tem o poder de decidir em qual local será "
+            "feita a montagem e saída das composições com os grãos",
+        ],
+    ),
+    item(
+        "v1-bh-004",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "O que indica a maior concentração do crédito rural nos contratos acima de R$ 300 mil?",
+        "Que o crescimento do crédito ocorreu sem transformar o número de "
+        "produtores beneficiados nem descentralizar recursos para outras regiões "
+        "e cultivos.",
+        [110],
+        [
+            "o crescimento do crédito rural nos últimos anos realizou-se sem "
+            "grandes transformações no número de produtores beneficiados e sem "
+            "descentralizar os recursos para outras regiões e cultivos agrícolas",
+        ],
+    ),
+    item(
+        "v1-bh-005",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Que efeito a adoção de novos sistemas técnicos agrícolas teve sobre o "
+        "aproveitamento dos solos?",
+        "Aumentou a possibilidade de aproveitar solos menos férteis e ocupar "
+        "intensivamente espaços antes desprezados.",
+        [65],
+        [
+            "Aumentou a possibilidade de aproveitamento dos solos menos férteis e "
+            "de ocupação intensiva de espaços agrícolas até então desprezados para "
+            "tais atividades.",
+        ],
+    ),
+    item(
+        "v1-bh-006",
+        "answerable",
+        "dificil",
+        DOC_BH,
+        "Qual é a extensão de terras que a família estudada possui atualmente em São Gabriel?",
+        "Possui 3.215 hectares em São Gabriel, além de arrendar outros 500 hectares.",
+        [155],
+        [
+            "hoje em São Gabriel, possuem 3.215 ha, além de arrendar outros 500 ha",
+        ],
+    ),
+    item(
+        "v1-bh-007",
+        "answerable",
+        "dificil",
+        DOC_BH,
+        "Como evoluiu a participação de pessoas físicas uruguaias na posse de "
+        "terras entre 2000 e 2011?",
+        "Caiu de 90% das terras em 2000 para 54% em 2011.",
+        [215],
+        [
+            "no ano 2000, 90% das terras estavam nas mãos de pessoas físicas de "
+            "nacionalidade uruguaia e, em 2011, esta cifra caiu para 54%",
+        ],
+    ),
+    item(
+        "v1-bh-008",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Como a soja foi apresentada no discurso empresarial boliviano?",
+        "Como uma commodity com 'vantagens comparativas' que levaria o país a uma "
+        "inserção internacional efetiva e traria progresso à sociedade.",
+        [250],
+        [
+            "A soja foi apresentada como uma commodity com “vantagens "
+            "comparativas” que levaria o país a uma efetiva inserção no comercio "
+            "internacional, o que por sua vez traria progresso para o conjunto da "
+            "sociedade boliviana.",
+        ],
+    ),
+    item(
+        "v1-bh-009",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Quantas entrevistas compõem o corpus de análise do capítulo sobre "
+        "prestadores de serviços agrícolas?",
+        "Um corpus de 56 entrevistas.",
+        [230],
+        [
+            "A principal fonte de análise deste capítulo consiste em um corpus de 56 entrevistas.",
+        ],
+    ),
+    item(
+        "v1-bh-010",
+        "answerable",
+        "dificil",
+        DOC_BH,
+        "O que se observa em relação ao paradigma ecológico na região tratada?",
+        "Observa-se uma mudança de paradigma ecológico numa região onde a "
+        "conservação se restringia a ecossistemas percebidos como virgens.",
+        [170],
+        [
+            "Observa-se nesta ocasião uma mudança de paradigma ecológico",
+        ],
+    ),
+    item(
+        "v1-bh-011",
+        "answerable",
+        "medio",
+        DOC_BH,
+        "Que pressuposto o texto atribui à visão que separa a produção agrária da "
+        "atividade industrial?",
+        "O pressuposto de que a produção agrária tem por eixo um processo natural "
+        "e que o produto — grãos ou gado — não implica manipulação humana.",
+        [35],
+        [
+            "se trata de uma atividade cujo eixo da produção é um processo natural "
+            "e que o produto – grãos ou gado – não implica nenhuma manipulação por "
+            "parte do homem",
+        ],
+    ),
+    item(
+        "v1-bh-012",
+        "answerable",
+        "facil",
+        DOC_BH,
+        "Qual é a moagem média anual por usina das nove unidades administradas "
+        "por grandes grupos empresariais?",
+        "Uma média de 2,2 milhões de toneladas por ano por usina.",
+        [200],
+        [
+            "o conjunto de 9 unidades administradas por grandes grupos "
+            "empresariais moem 19,2 milhões t/ano, o que representa uma média de "
+            "2,2 milhões de t/ano por usina",
+        ],
+    ),
+    item(
+        "v1-bh-013",
+        "ambiguous_partial",
+        "dificil",
+        DOC_BH,
+        "Qual será a magnitude exata da expansão da fronteira agrícola prevista "
+        "na Agenda Patriótica 2015 boliviana?",
+        "O texto informa que se trata de milhões de hectares, mas que a magnitude "
+        "exata ainda não é conhecida.",
+        [250],
+        [
+            "A magnitude dessa expansão ainda não é conhecida, ainda que se saiba "
+            "tratar-se de milhões de hectares.",
+        ],
+        notas=("Parcial: o corpus afirma explicitamente que a magnitude exata não é conhecida."),
+    ),
+    item(
+        "v1-bh-014",
+        "ambiguous_partial",
+        "medio",
+        DOC_BH,
+        "O programa Cambio Rural ofereceu crédito barato aos pequenos produtores rurais?",
+        "O texto afirma que o programa nunca contou com linhas de crédito barato, "
+        "embora avalie seus resultados como díspares e no geral positivos.",
+        [140],
+        [
+            "O programa nunca contou com linhas de crédito barato para produtores, "
+            "o que constituía uma necessidade imperiosa do pequeno empresariado "
+            "rural na primeira das décadas observadas.",
+        ],
+        notas=(
+            "Parcial: a ausência de crédito barato convive com uma avaliação de "
+            "'resultados díspares, mas no geral positivos', o que impede um "
+            "julgamento simples."
+        ),
+    ),
+    item(
+        "v1-bh-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_BH,
+        "É possível saber com precisão quanta terra uruguaia foi comprada por estrangeiros?",
+        "Não com precisão: o texto afirma que há grandes compras por companhias "
+        "estrangeiras, mas não há registros para o país como um todo.",
+        [215],
+        [
+            "É sabido que ocorrem grandes compras de terra por companhias "
+            "estrangeiras, mas não há registros dessas compras para o país como um "
+            "todo.",
+        ],
+        notas=(
+            "Parcial: os dados são incompletos porque grande parte das compras é "
+            "feita sob a forma de sociedades anônimas."
+        ),
+    ),
+    item(
+        "v1-bh-016",
+        "unanswerable",
+        "facil",
+        DOC_BH,
+        "Qual é a cotação atual do dólar frente ao real?",
+        notas=("Não respondível: o livro não fornece cotações cambiais, muito menos atuais."),
+    ),
+    item(
+        "v1-bh-017",
+        "unanswerable",
+        "medio",
+        DOC_BH,
+        "Quantas toneladas de soja o Brasil exportou para a China em 2023?",
+        notas=(
+            "Não respondível: o corpus não apresenta volumes de exportação de "
+            "soja por destino e ano recente."
+        ),
+    ),
+    item(
+        "v1-bh-018",
+        "unanswerable",
+        "medio",
+        DOC_BH,
+        "Quais são as exigências fitossanitárias para exportar carne bovina "
+        "brasileira à União Europeia?",
+        notas=(
+            "Não respondível: exigências fitossanitárias e regulatórias de "
+            "exportação não são tema desta obra."
+        ),
+    ),
+    item(
+        "v1-bh-019",
+        "unanswerable",
+        "facil",
+        DOC_BH,
+        "Como calcular a dose de calcário para correção da acidez do solo?",
+        notas=("Não respondível: procedimento agronômico de correção de solo não é abordado."),
+    ),
+    item(
+        "v1-bh-020",
+        "unanswerable",
+        "dificil",
+        DOC_BH,
+        "Qual é a estrutura acionária atualizada da Cargill Brasil em 2024?",
+        notas=(
+            "Não respondível: o corpus não traz a composição societária atual de empresas do setor."
+        ),
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# LIVRO  MUNDIALIZAÇÃO pronto — dense — 545 pages
+# ---------------------------------------------------------------------------
+MU_ITEMS: list[dict] = [
+    item(
+        "v1-mu-001",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "Que posição o Brasil ocupava no comércio mundial agrícola, segundo a notícia citada?",
+        "Havia ultrapassado o Canadá e se tornado o terceiro maior exportador de "
+        "produtos agrícolas do mundo.",
+        [110],
+        [
+            "O Brasil ultrapassou o Canadá e se tornou o terceiro maior exportador "
+            "de produtos agrícolas do mundo.",
+        ],
+    ),
+    item(
+        "v1-mu-002",
+        "answerable",
+        "dificil",
+        DOC_MU,
+        "Qual foi a área de terras envolvida na aquisição da Klabin no Paraná?",
+        "A compra envolveu 107 mil hectares, dos quais 63 mil hectares de "
+        "florestas plantadas no Paraná.",
+        [230],
+        [
+            "A compra envolve 107 mil hectares de terras com 63 mil hectares de "
+            "florestas plantadas no Paraná.",
+        ],
+    ),
+    item(
+        "v1-mu-003",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "Por que associar-se à Klabin interessava à chilena Arauco, segundo o texto?",
+        "Era uma forma de driblar a restrição à compra de terras por estrangeiros.",
+        [230],
+        [
+            "Para a chilena Arauco, associar-se à Klabin é uma forma de driblar a "
+            "restrição à compra de terras por estrangeiros.",
+        ],
+    ),
+    item(
+        "v1-mu-004",
+        "answerable",
+        "dificil",
+        DOC_MU,
+        "Como foi estruturado o negócio entre a Bunge e o grupo Moema?",
+        "Foi um negócio de US$ 1,5 bilhão sem dinheiro, apenas com troca de ações "
+        "da Bunge na Bolsa de Nova York pelas do grupo brasileiro.",
+        [140],
+        [
+            "O negócio, de US$1,5 bilhão, não envolveu dinheiro, apenas a troca de "
+            "ações da Bunge na Bolsa de Nova York pelas do grupo brasileiro.",
+        ],
+    ),
+    item(
+        "v1-mu-005",
+        "answerable",
+        "dificil",
+        DOC_MU,
+        "O que levou a Sementes Selecta a pedir recuperação judicial, segundo o texto?",
+        "Os contratos de proteção ('hedge') feitos no mercado futuro para se "
+        "proteger da variação dos preços da soja.",
+        [290],
+        [
+            "O infortúnio da Selecta foi ironicamente resultado dos contratos de "
+            'proteção ("hedge") que a empresa fez no mercado futuro para se '
+            "proteger da variação dos preços da soja.",
+        ],
+    ),
+    item(
+        "v1-mu-006",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "Que obra rodoviária foi privatizada em 1994 no governo Itamar Franco?",
+        "A Ponte Rio-Niterói.",
+        [80],
+        [
+            "No subsetor rodoviário foi privatizada em 1994 a Ponte Rio-Niterói no "
+            "governo Itamar Franco/PRN.",
+        ],
+    ),
+    item(
+        "v1-mu-007",
+        "answerable",
+        "facil",
+        DOC_MU,
+        "Qual foi o prazo contratual da concessão citada no setor rodoviário?",
+        "Vinte anos, de 1995 a 2015.",
+        [80],
+        [
+            "Foi adotado o modelo de concessão e o prazo contratual foi de 20 anos - 1995/2015.",
+        ],
+    ),
+    item(
+        "v1-mu-008",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "O que caracteriza o 'Consórcio Modular' na indústria automobilística, segundo o texto?",
+        "Os fornecedores tornam-se responsáveis pela montagem de pelo menos "
+        "alguma parte dos veículos.",
+        [30],
+        [
+            "No Consórcio Modular, os fornecedores tornam-se responsáveis pela "
+            "montagem de pelo menos alguma parte dos veículos.",
+        ],
+    ),
+    item(
+        "v1-mu-009",
+        "answerable",
+        "dificil",
+        DOC_MU,
+        "Em quais estados se localiza a área da Sollus, na região conhecida como 'Mapitoba'?",
+        "Nos estados do Maranhão, Piauí, Tocantins e Bahia.",
+        [410],
+        [
+            "A Sollus tem uma área de 30 mil hectares – dos quais, aproximadamente "
+            "16 mil cultiváveis – no Maranhão, Piauí, Tocantins e Bahia (região "
+            'conhecida como "Mapitoba").',
+        ],
+    ),
+    item(
+        "v1-mu-010",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "Que decisão da CTNBio, no final da década de 1990, é apontada como marco "
+        "da liberação de transgênicos no Brasil?",
+        "A autorização do plantio comercial da soja Roundup Ready (RR), tolerante "
+        "ao herbicida glifosato.",
+        [450],
+        [
+            "a Comissão Técnica Nacional de Biossegurança (CTNBio) autorizou o "
+            "plantio comercial da soja Roundup Ready (RR), tolerante ao herbicida "
+            "glifosato",
+        ],
+    ),
+    item(
+        "v1-mu-011",
+        "answerable",
+        "dificil",
+        DOC_MU,
+        "A que efeitos sobre embriões de ratos está associada a cipermetrina, segundo o texto?",
+        "É tóxica para os embriões de ratos, incluindo perda pós-implantação dos "
+        "fetos e más-formações viscerais.",
+        [490],
+        [
+            "e tóxica para os embriões de ratos, incluindo a perda pós-implantação "
+            "dos fetos e másformações viscerais",
+        ],
+    ),
+    item(
+        "v1-mu-012",
+        "answerable",
+        "medio",
+        DOC_MU,
+        "Com qual grupo a trading suíça Glencore fechou acordo no setor do trigo?",
+        "Com o Grupo Predileto, comprando 50% do capital da controladora dos "
+        "Moinhos Cruzeiro do Sul.",
+        [260],
+        [
+            "fechou um acordo com a Predileto Investimentos S/A do Grupo "
+            "Predileto, controladora dos Moinhos Cruzeiro do Sul S/A, comprou 50% "
+            "do capital da empresa nacional",
+        ],
+    ),
+    item(
+        "v1-mu-013",
+        "ambiguous_partial",
+        "medio",
+        DOC_MU,
+        "A ascensão do Brasil a terceiro maior exportador agrícola reflete um "
+        "avanço econômico real?",
+        "O autor contesta essa leitura, tratando a mudança de posição no ranking "
+        "como uma 'matemagia' ideológica.",
+        [110],
+        [
+            'Utilizando-se dessa "matemagia" o agronegócio do Brasil passou de 5o lugar para 3o',
+        ],
+        notas=(
+            "Parcial: o texto enquadra o salto no ranking como 'matemagia' "
+            "ideológica, contestando-o em vez de confirmá-lo como progresso real."
+        ),
+    ),
+    item(
+        "v1-mu-014",
+        "ambiguous_partial",
+        "dificil",
+        DOC_MU,
+        "A produção agropecuária em larga escala beneficia o conjunto da sociedade?",
+        "Segundo o depoimento citado, essa produção só é vantajosa para um grupo "
+        "— usineiros e grandes fazendeiros —, não para o conjunto da sociedade.",
+        [520],
+        [
+            "Essa produção agropecuária em larga escala só é vantajosa para um grupo.",
+        ],
+        notas=(
+            "Parcial: trata-se de um testemunho crítico que atribui os benefícios "
+            "a 'um grupo social', não de uma análise equilibrada do conjunto."
+        ),
+    ),
+    item(
+        "v1-mu-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_MU,
+        "A legalização do cultivo de transgênicos no Brasil seguiu um percurso regular?",
+        "O autor a caracteriza como uma 'legalização às avessas', com "
+        "peculiaridades que precisam ser resgatadas, sem descrevê-la como "
+        "regular.",
+        [450],
+        [
+            "A historicidade de uma legalização às avessas: A liberação do cultivo "
+            "e manipulação dos OGMs no Brasil possui peculiaridades que precisam "
+            "ser resgatadas.",
+        ],
+        notas=(
+            "Parcial: a expressão 'legalização às avessas' aponta irregularidade, "
+            "mas o percurso completo depende da narrativa que se segue no texto."
+        ),
+    ),
+    item(
+        "v1-mu-016",
+        "unanswerable",
+        "facil",
+        DOC_MU,
+        "Qual é o preço do litro do etanol nas bombas de São Paulo hoje?",
+        notas=(
+            "Não respondível: a obra não fornece preços de combustível ao "
+            "consumidor, tampouco atuais."
+        ),
+    ),
+    item(
+        "v1-mu-017",
+        "unanswerable",
+        "medio",
+        DOC_MU,
+        "Quantos empregos diretos o setor sucroenergético gerou no Brasil em 2023?",
+        notas=(
+            "Não respondível: o corpus não apresenta estatísticas de emprego do setor para 2023."
+        ),
+    ),
+    item(
+        "v1-mu-018",
+        "unanswerable",
+        "medio",
+        DOC_MU,
+        "Qual é a capacidade instalada de energia solar do agronegócio brasileiro?",
+        notas=("Não respondível: geração de energia solar não é tema tratado nesta obra."),
+    ),
+    item(
+        "v1-mu-019",
+        "unanswerable",
+        "facil",
+        DOC_MU,
+        "Como registrar uma cooperativa agrícola na Junta Comercial?",
+        notas=(
+            "Não respondível: o procedimento jurídico de registro de cooperativas não é abordado."
+        ),
+    ),
+    item(
+        "v1-mu-020",
+        "unanswerable",
+        "dificil",
+        DOC_MU,
+        "Qual é a pegada de carbono por tonelada de soja exportada pelo porto de Santos?",
+        notas=("Não respondível: o corpus não calcula pegada de carbono por tonelada exportada."),
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# poor-scan fixture (derived from ph,+...+cerrado-goiano.pdf) — 18 fixture pages
+# paginas_esperadas are FIXTURE pages; the manifest page_map translates each to
+# the original source page for the evidence audit.
+# ---------------------------------------------------------------------------
+CG_ITEMS: list[dict] = [
+    item(
+        "v1-cg-001",
+        "answerable",
+        "facil",
+        DOC_CG,
+        "Qual tem sido o maior símbolo do processo de ocupação agrícola do "
+        "Cerrado, além da transgenia?",
+        "O uso crescente de agrotóxicos.",
+        [2],
+        [
+            "Além da tecnologia da transgenia, o maior símbolo desse processo tem "
+            "sido o uso crescente de agrotóxicos.",
+        ],
+    ),
+    item(
+        "v1-cg-002",
+        "answerable",
+        "facil",
+        DOC_CG,
+        "Qual é a extensão contínua do Cerrado e sua participação no território brasileiro?",
+        "Uma área contínua de 192,8 milhões de hectares, o equivalente a 22,65% "
+        "do território brasileiro.",
+        [3],
+        [
+            "com uma área contínua de 192,8 milhões de hectares (22,65% do território brasileiro)",
+        ],
+    ),
+    item(
+        "v1-cg-003",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "Qual é a relação entre o território de Goiás e o bioma Cerrado?",
+        "Considerando as áreas de transição, Goiás tem 100% de seu território no "
+        "Cerrado, o que corresponde a 17,64% da cobertura total do bioma no país.",
+        [3],
+        [
+            "o estado tem 100% de seu território no Cerrado, o que corresponde a "
+            "17,64% da cobertura total desse bioma no país",
+        ],
+    ),
+    item(
+        "v1-cg-004",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "Quanto resta da área original do Cerrado, segundo o IBGE (2012)?",
+        "Remanesce somente 50,9% da área original do Cerrado.",
+        [4],
+        [
+            "remanesce somente 50,9% da área original do Cerrado",
+        ],
+    ),
+    item(
+        "v1-cg-005",
+        "answerable",
+        "dificil",
+        DOC_CG,
+        "Qual estado apresenta a maior perda de área do bioma Cerrado e em que proporção?",
+        "Goiás, onde a supressão do bioma chega a 65,5% da área total.",
+        [4],
+        [
+            "No estado de Goiás, a supressão do bioma chega a 65,5% da área total",
+        ],
+    ),
+    item(
+        "v1-cg-006",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "Quantas espécies de animais do Cerrado estão ameaçadas de extinção por "
+        "causa da expansão agrícola?",
+        "Pelo menos 137 espécies de animais que ocorrem no Cerrado.",
+        [5],
+        [
+            "pelo menos 137espécies de animais que ocorrem no Cerrado estão "
+            "ameaçadas de extinção em razão da grande expansão da agricultura",
+        ],
+    ),
+    item(
+        "v1-cg-007",
+        "answerable",
+        "facil",
+        DOC_CG,
+        "Em que ano e contexto histórico a Revolução Verde foi estabelecida, segundo o texto?",
+        "A partir de 1945, no contexto da Guerra Fria, em um mundo polarizado "
+        "entre dois blocos de poder.",
+        [6],
+        [
+            "A Revolução Verde foi estabelecida a partir de 1945, no contexto da "
+            "Guerra Fria, em um mundo polarizado entre dois blocos de poder.",
+        ],
+    ),
+    item(
+        "v1-cg-008",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "Quais efeitos o chamado 'modelo convencional' teve sobre os pequenos agricultores?",
+        "Levou-os a perder o controle da produção, a comprar insumos cada vez "
+        "mais caros e a vender seus produtos a preços cada vez menores.",
+        [7],
+        [
+            "O chamado “modelo convencional” levou os pequenos agricultores a "
+            "perder o controle da produção, a comprar insumos cada vez mais caros "
+            "e a vender seus produtos a preços cada vez menores.",
+        ],
+    ),
+    item(
+        "v1-cg-009",
+        "answerable",
+        "dificil",
+        DOC_CG,
+        "Quais doenças estão entre as principais decorrentes das intoxicações por agrotóxicos?",
+        "Doenças dermatológicas, problemas renais e vários tipos de câncer.",
+        [9],
+        [
+            "Doenças dermatológicas, problemas renais e vários tipos de cânceres "
+            "estão entre as principais enfermidades resultantes das intoxicações "
+            "por agrotóxicos (ROSA; PESSOA; RIGOTTO, 2011).",
+        ],
+    ),
+    item(
+        "v1-cg-010",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "O que o texto afirma sobre a permanência dos resíduos de agrotóxicos na natureza?",
+        "Podem permanecer na natureza por vários anos, tornando quase impossível "
+        "identificar espécies livres de contaminação.",
+        [10],
+        [
+            "Os resíduos de agrotóxicos podem permanecer na natureza por vários "
+            "anos, como indicaram pesquisas em várias partes do mundo, tornando "
+            "quase impossível identificar espécies livres de contaminação.",
+        ],
+    ),
+    item(
+        "v1-cg-011",
+        "answerable",
+        "medio",
+        DOC_CG,
+        "Como o Centro Mundial Agroflorestal define os sistemas agroflorestais (SAF)?",
+        "Como a integração de árvores em paisagens rurais produtivas.",
+        [14],
+        [
+            "O Centro Mundial Agroflorestal define SAF como a integração de "
+            "árvores em paisagens rurais produtivas.",
+        ],
+    ),
+    item(
+        "v1-cg-012",
+        "answerable",
+        "dificil",
+        DOC_CG,
+        "Quantos trabalhos sobre agroextrativismo foram encontrados nas bases ISI "
+        "e Scopus no período de 1991 a 2014?",
+        "Foram 52 trabalhos no ISI e 109 no Scopus.",
+        [15],
+        [
+            "No ISI, foram encontrados 52 trabalhos e, no Scopus, 109, publicados "
+            "no período de 1991 a 2014.",
+        ],
+    ),
+    item(
+        "v1-cg-013",
+        "ambiguous_partial",
+        "medio",
+        DOC_CG,
+        "O leite materno de mães brasileiras está contaminado por agrotóxicos?",
+        "O texto relata a detecção de diferentes tipos de agrotóxicos no leite "
+        "materno, mas com base em um estudo localizado (Lucas do Rio Verde/MT), "
+        "não em uma conclusão nacional.",
+        [11],
+        [
+            "O resultado mais surpreendente, no entanto, foi a detecção de "
+            "diferentes tipos de agrotóxicos no leite materno.",
+        ],
+        notas=(
+            "Parcial: a evidência vem de uma pesquisa localizada (Lucas do Rio "
+            "Verde/MT), não de uma medição nacional generalizável."
+        ),
+    ),
+    item(
+        "v1-cg-014",
+        "ambiguous_partial",
+        "dificil",
+        DOC_CG,
+        "Por que o Pantanal não foi objeto de estudos sobre agroextrativismo?",
+        "O texto apenas conjectura que o Pantanal, visto por muitos como "
+        "subsistema do Cerrado, talvez tenha sido enquadrado nas pesquisas sobre "
+        "este bioma.",
+        [17],
+        [
+            "O Pantanal, considerado por muitos autores como um subsistema do "
+            "Cerrado, talvez tenha sido enquadrado nas pesquisas acerca deste "
+            "bioma.",
+        ],
+        notas=(
+            "Parcial: os próprios autores afirmam fazer 'apenas suposições' para "
+            "explicar a ausência desses biomas."
+        ),
+    ),
+    item(
+        "v1-cg-015",
+        "ambiguous_partial",
+        "medio",
+        DOC_CG,
+        "Os resultados de pesquisas financiadas pela indústria de agrotóxicos são "
+        "declarados de forma transparente?",
+        "Há indícios de que não são declarados com transparência, tendendo a "
+        "favorecer o produto, mas o texto ressalva que isso também ocorre em "
+        "estudos não financiados por empresas.",
+        [18],
+        [
+            "Há muitos indícios de que os resultados destas pesquisas não são "
+            "declarados de forma transparente, pois tendem a ser escritos de "
+            "maneira enviesada em favor do produto.",
+        ],
+        notas=(
+            "Parcial: o corpus qualifica imediatamente que o enviesamento também "
+            "aparece em estudos não financiados por empresas."
+        ),
+    ),
+    item(
+        "v1-cg-016",
+        "unanswerable",
+        "facil",
+        DOC_CG,
+        "Qual é o preço médio da saca de soja na bolsa de Chicago em 2024?",
+        notas=(
+            "Não respondível: o livro trata de agrotóxicos e agroextrativismo no "
+            "Cerrado, não de cotações de commodities."
+        ),
+    ),
+    item(
+        "v1-cg-017",
+        "unanswerable",
+        "medio",
+        DOC_CG,
+        "Quais são os procedimentos de registro de um novo agrotóxico junto ao IBAMA e à ANVISA?",
+        notas=(
+            "Não respondível: o texto discute impactos dos agrotóxicos, mas não o "
+            "processo regulatório de registro."
+        ),
+    ),
+    item(
+        "v1-cg-018",
+        "unanswerable",
+        "medio",
+        DOC_CG,
+        "Qual foi a área plantada de cana-de-açúcar no estado de São Paulo na safra 2019/2020?",
+        notas=("Não respondível: foge do escopo regional e temático, centrado no Cerrado goiano."),
+    ),
+    item(
+        "v1-cg-019",
+        "unanswerable",
+        "facil",
+        DOC_CG,
+        "Como preparar uma calda bordalesa para o controle de fungos em hortaliças?",
+        notas=("Não respondível: receita agronômica de defensivo não é abordada na obra."),
+    ),
+    item(
+        "v1-cg-020",
+        "unanswerable",
+        "dificil",
+        DOC_CG,
+        "Qual é a estrutura química detalhada da molécula de glifosato e sua rota "
+        "de síntese industrial?",
+        notas=(
+            "Não respondível: o texto cita riscos do glifosato à saúde, mas não "
+            "descreve sua estrutura química nem rota de síntese."
+        ),
+    ),
+]
+
+ALL_ITEMS: list[dict] = HA_ITEMS + MA_ITEMS + PP_ITEMS + BH_ITEMS + MU_ITEMS + CG_ITEMS
+
+
+def build() -> list[dict]:
+    return ALL_ITEMS
 
 
 def main() -> None:
-    output = pathlib.Path(__file__).parent / "datasets" / "v1" / "golden.jsonl"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    items = build_items()
-
-    # Sanity checks before writing
-    assert len(items) == 120, f"Expected 120 items, got {len(items)}"
-    answerable = sum(1 for i in items if i["tipo"] == "answerable")
-    unanswerable = sum(1 for i in items if i["tipo"] == "unanswerable")
-    ambiguous = sum(1 for i in items if i["tipo"] == "ambiguous_partial")
-    assert answerable == 72, f"Expected 72 answerable, got {answerable}"
-    assert unanswerable == 30, f"Expected 30 unanswerable, got {unanswerable}"
-    assert ambiguous == 18, f"Expected 18 ambiguous_partial, got {ambiguous}"
-
-    with open(output, "w", encoding="utf-8") as fh:
-        for item in items:
-            fh.write(json.dumps(item, ensure_ascii=False) + "\n")
-
-    print(f"Written {len(items)} items to {output}")
-    print(f"  answerable={answerable}  unanswerable={unanswerable}  ambiguous_partial={ambiguous}")
+    out_path = pathlib.Path(__file__).parent / "datasets" / "v1" / "golden.jsonl"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [json.dumps(entry, ensure_ascii=False) for entry in ALL_ITEMS]
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Wrote {len(ALL_ITEMS)} items to {out_path}")
 
 
 if __name__ == "__main__":

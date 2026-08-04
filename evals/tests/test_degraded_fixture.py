@@ -1,14 +1,27 @@
-"""Tests for the degraded-fixture generator (evals/generate_degraded_fixture.py)."""
+"""Tests for the degraded-fixture generator (evals/generate_degraded_fixture.py).
+
+The fixture must be an *image-only* multipage PDF: text extraction from it is
+empty/negligible, while the raster pages still visibly carry the source content
+(so evidence remains auditable against the original text source via page_map).
+"""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import pathlib
 
-from evals.tests.conftest import EVALS_ROOT, SUPPORT_EBOOKS
+from evals.corpus_text import extract_page_text
+from evals.tests.conftest import (
+    EVALS_ROOT,
+    FIXTURE_PATH,
+    POOR_SCAN_SOURCE_PATH,
+)
 
-SOURCE_PDF = SUPPORT_EBOOKS / "ph,+Gerente+da+editora,+cerrado-goiano.pdf"
+SOURCE_PDF = POOR_SCAN_SOURCE_PATH
 GENERATE_SCRIPT = EVALS_ROOT / "generate_degraded_fixture.py"
+# A small, fast subset of representative pages for tmp-path regeneration tests.
+SAMPLE_PAGES = [18, 20, 22]
 
 
 class TestDegradedFixtureGenerator:
@@ -24,81 +37,93 @@ class TestDegradedFixtureGenerator:
         output = generate_degraded_fixture(
             source_pdf=SOURCE_PDF,
             output_dir=tmp_path,
-            n_pages=5,
+            pages=SAMPLE_PAGES,
             seed=42,
         )
         assert output.exists()
         assert output.suffix == ".pdf"
         assert output.stat().st_size > 0
 
-    def test_output_filename_contains_provenance(self, tmp_path: pathlib.Path) -> None:
+    def test_output_filename_hints_at_source(self, tmp_path: pathlib.Path) -> None:
         from evals.generate_degraded_fixture import generate_degraded_fixture
 
         output = generate_degraded_fixture(
             source_pdf=SOURCE_PDF,
             output_dir=tmp_path,
-            n_pages=5,
+            pages=SAMPLE_PAGES,
             seed=42,
         )
-        # Fixture filename must hint at source
         name = output.name.lower()
-        assert "cerrado" in name or "fixture" in name or "scan" in name
+        assert "cerrado" in name or "scan" in name
 
     def test_generation_is_reproducible(self, tmp_path: pathlib.Path) -> None:
-        """Same seed + same input → same output bytes (no randomness in page extraction)."""
+        """Same source + pages + seed + dpi → identical output bytes."""
         from evals.generate_degraded_fixture import generate_degraded_fixture
 
-        out1 = generate_degraded_fixture(SOURCE_PDF, tmp_path / "run1", n_pages=3, seed=42)
-        out2 = generate_degraded_fixture(SOURCE_PDF, tmp_path / "run2", n_pages=3, seed=42)
-        (tmp_path / "run1").mkdir(parents=True, exist_ok=True)
-        (tmp_path / "run2").mkdir(parents=True, exist_ok=True)
+        out1 = generate_degraded_fixture(SOURCE_PDF, tmp_path / "run1", pages=SAMPLE_PAGES, seed=42)
+        out2 = generate_degraded_fixture(SOURCE_PDF, tmp_path / "run2", pages=SAMPLE_PAGES, seed=42)
         h1 = hashlib.sha256(out1.read_bytes()).hexdigest()
         h2 = hashlib.sha256(out2.read_bytes()).hexdigest()
-        assert h1 == h2, "Fixture generation must be reproducible with same seed"
+        assert h1 == h2, "Fixture generation must be reproducible with same inputs"
 
-    def test_generates_scan_noise_images(self, tmp_path: pathlib.Path) -> None:
-        from evals.generate_degraded_fixture import generate_scan_noise_images
+    def test_fixture_is_image_only_no_text(self, tmp_path: pathlib.Path) -> None:
+        """Text extraction from the generated fixture must be empty/negligible."""
+        from evals.generate_degraded_fixture import generate_degraded_fixture
 
-        images = generate_scan_noise_images(output_dir=tmp_path, n_pages=3, seed=42)
-        assert len(images) == 3
-        for img_path in images:
-            assert img_path.exists()
-            assert img_path.suffix == ".png"
-            assert img_path.stat().st_size > 0
+        output = generate_degraded_fixture(SOURCE_PDF, tmp_path, pages=SAMPLE_PAGES, seed=42)
+        for page in range(1, len(SAMPLE_PAGES) + 1):
+            text = extract_page_text(output, page).strip()
+            assert text == "", f"Fixture page {page} unexpectedly carries text: {text!r}"
 
-    def test_scan_images_reproducible(self, tmp_path: pathlib.Path) -> None:
-        from evals.generate_degraded_fixture import generate_scan_noise_images
+    def test_source_pages_actually_carry_text(self) -> None:
+        """Sanity: the *source* pages selected do carry extractable text."""
+        for page in SAMPLE_PAGES:
+            text = extract_page_text(SOURCE_PDF, page).strip()
+            assert len(text) > 50, f"Source page {page} has too little text to ground items"
 
-        imgs1 = generate_scan_noise_images(tmp_path / "r1", n_pages=2, seed=99)
-        imgs2 = generate_scan_noise_images(tmp_path / "r2", n_pages=2, seed=99)
-        (tmp_path / "r1").mkdir(parents=True, exist_ok=True)
-        (tmp_path / "r2").mkdir(parents=True, exist_ok=True)
-        for i1, i2 in zip(imgs1, imgs2, strict=True):
-            h1 = hashlib.sha256(i1.read_bytes()).hexdigest()
-            h2 = hashlib.sha256(i2.read_bytes()).hexdigest()
-            assert h1 == h2, f"Image {i1.name} not reproducible"
-
-    def test_different_seeds_produce_different_images(self, tmp_path: pathlib.Path) -> None:
-        from evals.generate_degraded_fixture import generate_scan_noise_images
-
-        imgs_a = generate_scan_noise_images(tmp_path / "a", n_pages=1, seed=1)
-        imgs_b = generate_scan_noise_images(tmp_path / "b", n_pages=1, seed=2)
-        (tmp_path / "a").mkdir(parents=True, exist_ok=True)
-        (tmp_path / "b").mkdir(parents=True, exist_ok=True)
-        h_a = hashlib.sha256(imgs_a[0].read_bytes()).hexdigest()
-        h_b = hashlib.sha256(imgs_b[0].read_bytes()).hexdigest()
-        assert h_a != h_b, "Different seeds must produce different images"
-
-    def test_provenance_json_written(self, tmp_path: pathlib.Path) -> None:
-        import json
+    def test_page_count_matches_selection(self, tmp_path: pathlib.Path) -> None:
+        import pypdfium2 as pdfium
 
         from evals.generate_degraded_fixture import generate_degraded_fixture
 
-        generate_degraded_fixture(SOURCE_PDF, tmp_path, n_pages=3, seed=42)
+        output = generate_degraded_fixture(SOURCE_PDF, tmp_path, pages=SAMPLE_PAGES, seed=42)
+        doc = pdfium.PdfDocument(str(output))
+        try:
+            assert len(doc) == len(SAMPLE_PAGES)
+        finally:
+            doc.close()
+
+    def test_provenance_json_written_with_page_map(self, tmp_path: pathlib.Path) -> None:
+        from evals.generate_degraded_fixture import generate_degraded_fixture
+
+        generate_degraded_fixture(SOURCE_PDF, tmp_path, pages=SAMPLE_PAGES, seed=42)
         provenance_files = list(tmp_path.glob("*provenance*.json"))
         assert provenance_files, "A provenance JSON must be written alongside the fixture"
         prov = json.loads(provenance_files[0].read_text(encoding="utf-8"))
         assert "source_pdf" in prov
         assert "source_sha256" in prov
-        assert "n_pages" in prov
-        assert "seed" in prov
+        assert "fixture_sha256" in prov
+        assert prov["fixture_page_count"] == len(SAMPLE_PAGES)
+        # page_map keys are 1-indexed fixture pages, values are source pages.
+        assert prov["page_map"] == {"1": 18, "2": 20, "3": 22}
+
+
+class TestCommittedFixture:
+    """Checks against the committed, canonical fixture used by the dataset."""
+
+    def test_committed_fixture_exists(self) -> None:
+        assert FIXTURE_PATH.exists(), f"Committed fixture not found: {FIXTURE_PATH}"
+
+    def test_committed_fixture_is_image_only(self) -> None:
+        import pypdfium2 as pdfium
+
+        doc = pdfium.PdfDocument(str(FIXTURE_PATH))
+        try:
+            page_count = len(doc)
+        finally:
+            doc.close()
+        assert page_count == 18
+        for page in range(1, page_count + 1):
+            assert (
+                extract_page_text(FIXTURE_PATH, page).strip() == ""
+            ), f"Committed fixture page {page} must carry no extractable text"

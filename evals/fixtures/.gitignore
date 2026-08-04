@@ -1,5 +1,10 @@
-# Generated fixture PDF (> 500 KB) — regenerate with:
+﻿# Transient/preview artifacts must not be committed.
+_preview_*.png
+_r1/
+_r2/
+
+# The deterministic image-only poor-scan fixture IS committed (regenerate with:
 #   python evals/generate_degraded_fixture.py \
-#       --source support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf \
-#       --output evals/fixtures --pages 5 --seed 42
-*.pdf
+#       --source "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf" \
+#       --output evals/fixtures --seed 42)
+# so it is intentionally NOT ignored here.

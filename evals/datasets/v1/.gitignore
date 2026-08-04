@@ -1,0 +1,11 @@
+# Regenerable, transient review artifacts (see evals/review_artifact.py):
+#   python evals/review_artifact.py \
+#       --dataset evals/datasets/v1/golden.jsonl \
+#       --manifest evals/datasets/v1/manifest.json \
+#       --output evals/datasets/v1/review --format both
+review.html
+review.csv
+review-decisions.*
+
+# Lock manifest is only written by an explicit, human-driven `validate freeze`.
+lock.json

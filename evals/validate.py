@@ -3,9 +3,17 @@ validate.py — Golden-dataset validation and freeze CLI (specs/12 §7.3).
 
 Usage
 -----
-Check dataset integrity (schema, composition, page bounds, document hashes):
+Check dataset integrity (schema, composition, page bounds, document hashes and
+evidence-quote presence on the expected PDF pages):
 
     python evals/validate.py check \\
+        --dataset evals/datasets/v1/golden.jsonl \\
+        --manifest evals/datasets/v1/manifest.json
+
+Run only the evidence audit (extract each expected page, assert every
+evidence_quote is present; fails if any quote is missing):
+
+    python evals/validate.py evidence \\
         --dataset evals/datasets/v1/golden.jsonl \\
         --manifest evals/datasets/v1/manifest.json
 
@@ -75,6 +83,7 @@ def _validate(
     manifest: dict,
     *,
     verbose: bool = True,
+    repo_root: pathlib.Path | None = None,
 ) -> None:
     """Raise ValidationError with a description of all problems found."""
     errors: list[str] = []
@@ -231,6 +240,27 @@ def _validate(
         err(f"manifest.item_count={manifest.get('item_count')} but actual={total}")
 
     # ------------------------------------------------------------------
+    # 10. Evidence audit — every evidence quote must appear on its page(s)
+    # ------------------------------------------------------------------
+    if verbose:
+        print("\n=== Evidence audit ===")
+    try:
+        from evals.evidence_audit import audit_evidence
+
+        root = repo_root or _REPO_ROOT
+        report = audit_evidence(items, manifest, root)
+        for failure in report.failures:
+            err(f"Item {failure.item_id} ({failure.documento}): {failure.reason}")
+        if report.ok:
+            ok(
+                f"All {report.checked_quotes} evidence quotes found across "
+                f"{report.checked_items} answerable/ambiguous items"
+            )
+    except ImportError:
+        if verbose:
+            print("  [SKIP] evals.evidence_audit not importable — skipping evidence audit")
+
+    # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
     if errors:
@@ -267,6 +297,37 @@ def cmd_check(args: argparse.Namespace) -> int:
     except (ValidationError, ValueError) as exc:
         print(f"\nValidation failed: {exc}", file=sys.stderr)
         return 1
+
+
+def cmd_evidence(args: argparse.Namespace) -> int:
+    dataset_path = pathlib.Path(args.dataset)
+    manifest_path = pathlib.Path(args.manifest)
+
+    if not dataset_path.exists():
+        print(f"ERROR: dataset not found: {dataset_path}", file=sys.stderr)
+        return 1
+    if not manifest_path.exists():
+        print(f"ERROR: manifest not found: {manifest_path}", file=sys.stderr)
+        return 1
+
+    from evals.evidence_audit import audit_evidence
+
+    items = _load_jsonl(dataset_path)
+    manifest = _load_manifest(manifest_path)
+    report = audit_evidence(items, manifest, _REPO_ROOT)
+
+    print(f"Evidence audit: {dataset_path}")
+    print(
+        f"  checked {report.checked_quotes} quote(s) across "
+        f"{report.checked_items} answerable/ambiguous item(s)"
+    )
+    if report.ok:
+        print("  RESULT: PASS — every evidence quote is present on its expected page(s).")
+        return 0
+    print(f"  RESULT: FAIL — {len(report.failures)} problem(s):", file=sys.stderr)
+    for failure in report.failures:
+        print(f"    - {failure.item_id} ({failure.documento}): {failure.reason}", file=sys.stderr)
+    return 1
 
 
 def cmd_freeze(args: argparse.Namespace) -> int:
@@ -333,6 +394,14 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("--dataset", required=True, help="Path to golden.jsonl")
     p_check.add_argument("--manifest", required=True, help="Path to manifest.json")
 
+    # evidence
+    p_evidence = sub.add_parser(
+        "evidence",
+        help="Audit that every evidence_quote appears on its expected PDF page(s)",
+    )
+    p_evidence.add_argument("--dataset", required=True, help="Path to golden.jsonl")
+    p_evidence.add_argument("--manifest", required=True, help="Path to manifest.json")
+
     # freeze
     p_freeze = sub.add_parser(
         "freeze",
@@ -346,6 +415,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "check":
         return cmd_check(args)
+    if args.command == "evidence":
+        return cmd_evidence(args)
     if args.command == "freeze":
         return cmd_freeze(args)
     parser.print_help()

@@ -30,9 +30,9 @@ class TestValidateCLICheck:
             capture_output=True,
             text=True,
         )
-        assert result.returncode == 0, (
-            f"validate check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"validate check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     def test_check_reports_item_count(self) -> None:
         result = subprocess.run(
@@ -67,6 +67,90 @@ class TestValidateCLICheck:
         assert result.returncode != 0
 
 
+class TestValidateCLIEvidence:
+    def test_evidence_passes_on_valid_dataset(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EVALS_ROOT / "validate.py"),
+                "evidence",
+                "--dataset",
+                str(GOLDEN_PATH),
+                "--manifest",
+                str(MANIFEST_PATH),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert (
+            result.returncode == 0
+        ), f"evidence audit failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        assert "PASS" in result.stdout
+
+    def test_evidence_fails_on_corrupted_quote(self, tmp_path: pathlib.Path) -> None:
+        """Writing a dataset with a bogus evidence quote must fail the CLI."""
+        items = [
+            json.loads(line)
+            for line in GOLDEN_PATH.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        for item in items:
+            if item["tipo"] == "answerable":
+                item["evidence_quotes"] = ["frase totalmente inventada e ausente do corpus"]
+                break
+        corrupted = tmp_path / "corrupted.jsonl"
+        corrupted.write_text(
+            "\n".join(json.dumps(i, ensure_ascii=False) for i in items) + "\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EVALS_ROOT / "validate.py"),
+                "evidence",
+                "--dataset",
+                str(corrupted),
+                "--manifest",
+                str(MANIFEST_PATH),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "FAIL" in result.stdout or "FAIL" in result.stderr
+
+    def test_check_fails_when_evidence_corrupted(self, tmp_path: pathlib.Path) -> None:
+        """The full `check` must also fail when an evidence quote is missing."""
+        items = [
+            json.loads(line)
+            for line in GOLDEN_PATH.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        for item in items:
+            if item["tipo"] == "answerable":
+                item["evidence_quotes"] = ["outra frase inexistente no corpus"]
+                break
+        corrupted = tmp_path / "corrupted.jsonl"
+        corrupted.write_text(
+            "\n".join(json.dumps(i, ensure_ascii=False) for i in items) + "\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EVALS_ROOT / "validate.py"),
+                "check",
+                "--dataset",
+                str(corrupted),
+                "--manifest",
+                str(MANIFEST_PATH),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+
 class TestValidateCLIFreeze:
     def test_freeze_creates_lock_file(self, tmp_path: pathlib.Path) -> None:
         lock_path = tmp_path / "lock.json"
@@ -85,9 +169,9 @@ class TestValidateCLIFreeze:
             capture_output=True,
             text=True,
         )
-        assert result.returncode == 0, (
-            f"freeze failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"freeze failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         assert lock_path.exists()
 
     def test_lock_file_contains_correct_sha256(self, tmp_path: pathlib.Path) -> None:
