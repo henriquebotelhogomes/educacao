@@ -1,0 +1,71 @@
+{
+  "version": "v1",
+  "status": "draft",
+  "created_at": "2026-08-03T22:56:04-03:00",
+  "spec_reference": "specs/12 §7.3",
+  "attested_on": "2026-08-03",
+  "dataset_file": "golden.jsonl",
+  "item_count": 120,
+  "composition": {
+    "answerable": 72,
+    "unanswerable": 30,
+    "ambiguous_partial": 18
+  },
+  "notes": "Dataset status is 'draft'. All items carry review_status='draft'. Do NOT mark as frozen or approved until every item has been human-reviewed. Benchmark scores must not be fabricated against this dataset.",
+  "documents": [
+    {
+      "filename": "História Agrária.pdf",
+      "doc_type": "narrative",
+      "sha256": "4ccea210e9da8d475d7d5fee0b8eeef0cfa5bcd69b912dcf52ba20bdffe59565",
+      "page_count": 315,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/História Agrária.pdf"
+    },
+    {
+      "filename": "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf",
+      "doc_type": "narrative",
+      "sha256": "a40430b294ce908cd403f06d0bdb5b7cd61679b9b9d460be058a182329112669",
+      "page_count": 569,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf"
+    },
+    {
+      "filename": "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf",
+      "doc_type": "table_heavy",
+      "sha256": "ba67345690bb6bcc8aefb8411346f88944797dd0453c558eebb4d1b06765af31",
+      "page_count": 214,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf"
+    },
+    {
+      "filename": "buhler-9786557250044.pdf",
+      "doc_type": "table_heavy",
+      "sha256": "7cccb17e78c79db3ce83de60172805c1cb86492e3116b93795a25e6ff2fe3b78",
+      "page_count": 277,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/buhler-9786557250044.pdf"
+    },
+    {
+      "filename": "LIVRO  MUNDIALIZAÇÃO pronto.pdf",
+      "doc_type": "dense",
+      "sha256": "234160a5be4fce6c2ca9f8c89ceec0b55d431343730558306f570415aa5b84a6",
+      "page_count": 545,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/LIVRO  MUNDIALIZAÇÃO pronto.pdf"
+    },
+    {
+      "filename": "ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+      "doc_type": "poor_scan",
+      "sha256": "7d6a3e65e38b56d2ab5e985e5dbf872cab3bd45e8a322099084223f69beee164",
+      "page_count": 100,
+      "license_basis": "user_attestation",
+      "user_attestation": "Attested by user on 2026-08-03: all six PDFs under support/ebooks are authorized for use and sharing in this project. Any copyright or license statements embedded in the PDF itself are preserved and take precedence. This attestation does not grant new rights beyond what the rightsholder has authorised.",
+      "provenance": "support/ebooks/ph,+Gerente+da+editora,+cerrado-goiano.pdf"
+    }
+  ]
+}

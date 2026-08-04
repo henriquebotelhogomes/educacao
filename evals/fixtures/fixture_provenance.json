@@ -1,0 +1,10 @@
+{
+  "source_pdf": "support\\ebooks\\ph,+Gerente+da+editora,+cerrado-goiano.pdf",
+  "source_sha256": "7d6a3e65e38b56d2ab5e985e5dbf872cab3bd45e8a322099084223f69beee164",
+  "n_pages": 5,
+  "seed": 42,
+  "fixture_pdf": "ph-Gerente-da-editora-cerrado-goiano-scan-fixture-p1-5.pdf",
+  "generated_at": "2026-08-04T02:15:39.081469+00:00",
+  "generator": "evals/generate_degraded_fixture.py",
+  "notes": "This is a test fixture only. It is derived from the source PDF to simulate poor scan quality in pipeline tests. The source PDF is authorized for use per user attestation on 2026-08-03. Any copyright or license statements embedded in the original PDF are preserved and take precedence."
+}

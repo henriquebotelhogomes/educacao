@@ -1,0 +1,62 @@
+[project]
+name = "mentora-ai-workspace"
+version = "0.1.0"
+description = "Workspace do SaaS educacional Mentora AI"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "legacy-streamlit",
+    "mentora-api",
+    "mentora-worker",
+]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.1",
+    "mypy>=1.11",
+    "pre-commit>=3.7",
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[tool.uv.workspace]
+members = ["legacy/streamlit", "apps/api", "apps/worker"]
+
+[tool.uv.sources]
+legacy-streamlit = { workspace = true }
+mentora-api = { workspace = true }
+mentora-worker = { workspace = true }
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["legacy/streamlit/app.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "A",   # flake8-builtins (sombra de builtins, ex.: `exec`)
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E402", # imports após configuração de env/no topo do Streamlit são intencionais
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+explicit_package_bases = true
+mypy_path = ["apps/api/src", "apps/worker/src", "."]
+files = ["apps/api/src", "apps/api/tests", "apps/worker/src", "apps/worker/tests", "evals"]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "apps/worker/tests", "evals/tests"]
+addopts = "-ra"
