@@ -1,8 +1,8 @@
 # Mentora AI
 
-SaaS educacional em evolução: transforma materiais de estudo em um tutor de IA fundamentado em
-fontes. O protótipo Streamlit permanece congelado como referência enquanto o produto migra para
-Next.js, FastAPI e serviços locais observáveis.
+SaaS educacional de classe mundial: transforma materiais de estudo em um tutor de IA fundamentado em
+fontes com turmas conectadas, modo socrático anti-cola e radar de lacunas de aprendizagem. Construído com
+Next.js (App Router), React 19, Tailwind CSS v4, FastAPI assíncrono e serviços locais observáveis.
 
 ## Status
 
@@ -149,12 +149,3 @@ uv run pre-commit run --all-files
 ```
 
 O GitHub Actions replica os gates de backend, frontend e contrato OpenAPI.
-
-## Protótipo legado
-
-O protótipo original não é o produto atual e não deve receber funcionalidades novas. Execute-o
-somente como referência:
-
-```powershell
-uv run --package legacy-streamlit streamlit run legacy/streamlit/app.py
-```

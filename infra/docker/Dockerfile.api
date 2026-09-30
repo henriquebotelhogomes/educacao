@@ -4,7 +4,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.25 /uv /uvx /usr/local/bin/
 
 WORKDIR /workspace
 COPY pyproject.toml uv.lock README.md ./
-COPY legacy/streamlit/pyproject.toml legacy/streamlit/README.md ./legacy/streamlit/
 COPY apps/api/pyproject.toml ./apps/api/
 COPY apps/worker/pyproject.toml ./apps/worker/
 COPY apps/api/src ./apps/api/src
