@@ -13,7 +13,9 @@ Next.js, FastAPI e serviços locais observáveis.
 | 1 — Identidade e isolamento | ✅ Concluído — OAuth state vinculado ao navegador |
 | 2 — Documentos / ingestão | ✅ Concluído — redelivery idempotente |
 | 3 — Tutor confiável | ✅ Reconcluído após review — cota mensal atômica |
-| 3.5+ — Calibração e gerador | ⬜ Pendente |
+| 3.5 — Avaliação & Tríade Ragas | ✅ Concluído — Dataset dourado v1 lock, multi-provider (OpenRouter/Groq) |
+| 4 — Inovações V2 (Turmas & Cockpit) | ✅ Concluído — Código de 6 dígitos, Modo Socrático, Radar Zero-PII, Flashcards |
+| 5 — Visão Multimodal & Split-Screen | ⏳ Planejado — Fotos de cadernos e leitor PDF split-screen sincronizado |
 
 As fontes de verdade são o [PRD](./PRD.md), o [plano de execução](./specs/12-execution-plan.md),
 o [registro de ADRs](./specs/11-risks-assumptions-adr.md), os [recursos inovadores](./specs/14-classroom-innovations-v2.md)
@@ -65,8 +67,9 @@ O comando final sobe a plataforma local:
 | Serviço | URL |
 |---|---|
 | Produto web via ingress | http://localhost:8080 |
-| API / OpenAPI | http://localhost:8000/docs |
-| Grafana | http://localhost:3001 (`admin` / `admin_dev_only`) |
+| Hub de Turmas (Google Classroom-style) | http://localhost:8080/classes |
+| Documentação da API (Scalar obrigatório) | http://localhost:8000/docs |
+| Grafana / Telemetria | http://localhost:3001 (`admin` / `admin_dev_only`) |
 
 ### Verificação pós-startup
 
@@ -135,11 +138,11 @@ Use `down -v` apenas quando quiser apagar todos os dados de desenvolvimento.
 ## Qualidade
 
 ```powershell
-uv run ruff check apps/api apps/worker
-uv run ruff format --check apps/api apps/worker
-uv run mypy --config-file=pyproject.toml
-uv run --package mentora-api pytest
-uv run --package mentora-api lint-imports
+uv run ruff check apps/api apps/worker evals
+uv run ruff format --check apps/api apps/worker evals
+uv run python -m mypy apps/api/src apps/api/tests
+uv run python -m pytest apps/api/tests/test_platform.py apps/api/tests/test_tutor_service.py apps/api/tests/test_classroom_api.py -v
+uv run python -m pytest apps/worker/tests/test_chunking.py apps/worker/tests/test_deterministic_ids.py apps/worker/tests/test_eicar.py apps/worker/tests/test_queue_messages.py -v
 npm run web:lint
 npm run web:build
 uv run pre-commit run --all-files
