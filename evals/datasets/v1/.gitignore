@@ -7,5 +7,4 @@ review.html
 review.csv
 review-decisions.*
 
-# Lock manifest is only written by an explicit, human-driven `validate freeze`.
-lock.json
+# lock.json is a versioned immutable record written by `validate freeze`.

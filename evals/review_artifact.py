@@ -9,8 +9,8 @@ without running a web server.
 Important
 ---------
 This tool is read-only with respect to the dataset: it never edits
-``golden.jsonl`` and never advances ``review_status``.  Every item is emitted
-with its current status (``draft``).  The HTML captures a reviewer's decisions
+``golden.jsonl`` and never advances ``review_status``. Every item is emitted
+with its current persisted status. The HTML captures a reviewer's decisions
 in the browser (``localStorage``) and lets them export a CSV/JSON of decisions;
 applying those decisions back to the dataset remains a deliberate, separate,
 human-driven step.
@@ -168,8 +168,8 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <h1>Marco 3.5 — Revisão do corpus golden</h1>
 <div class="meta">
  {count} itens. Nenhum item é marcado como revisado por esta ferramenta — todos
- permanecem <code>review_status=draft</code>. Suas decisões ficam apenas no
- navegador até você exportá-las.
+ mostram seu <code>review_status</code> persistido. Novas decisões ficam apenas
+ no navegador até você exportá-las.
 </div>
 <div class="controls">
  <button onclick="exportJson()">Exportar decisões (JSON)</button>

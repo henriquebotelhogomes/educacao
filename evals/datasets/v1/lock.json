@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "locked_at": "2026-08-04T14:39:59.415607+00:00",
+  "dataset_sha256": "cd7b41d2f6b5b71c55ee6c95f6939caa9b66941db5dad341f92c9d1afcf7146f",
+  "manifest_sha256": "e15ab7f21d13170ac14a352c7ee4aea6b421ee51974ded5d8cceb46b95ea66d7",
+  "item_count": 120,
+  "composition": {
+    "answerable": 72,
+    "unanswerable": 30,
+    "ambiguous_partial": 18
+  },
+  "document_hashes": {
+    "História Agrária.pdf": "4ccea210e9da8d475d7d5fee0b8eeef0cfa5bcd69b912dcf52ba20bdffe59565",
+    "historia-das-agriculturas-no-mundo-mazoyer-e-roudart.pdf": "a40430b294ce908cd403f06d0bdb5b7cd61679b9b9d460be058a182329112669",
+    "Políticas-públicas-agricultura-familiar-e-sustentabilidade.pdf": "ba67345690bb6bcc8aefb8411346f88944797dd0453c558eebb4d1b06765af31",
+    "buhler-9786557250044.pdf": "7cccb17e78c79db3ce83de60172805c1cb86492e3116b93795a25e6ff2fe3b78",
+    "LIVRO  MUNDIALIZAÇÃO pronto.pdf": "234160a5be4fce6c2ca9f8c89ceec0b55d431343730558306f570415aa5b84a6",
+    "ph-gerente-editora-cerrado-goiano-poor-scan.pdf": "1ccbdb687fc9b8443a14e727ad6e5dfa4e83eafa1f188962372b98dbd9a20290"
+  }
+}

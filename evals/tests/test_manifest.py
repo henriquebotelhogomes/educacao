@@ -28,8 +28,8 @@ class TestManifestStructure:
         manifest = DatasetManifest(**manifest_data)
         assert manifest.version == "v1"
 
-    def test_status_is_draft(self, manifest_data: dict) -> None:
-        assert manifest_data["status"] == "draft"
+    def test_status_is_frozen_after_human_approval(self, manifest_data: dict) -> None:
+        assert manifest_data["status"] == "frozen"
 
     def test_spec_reference_present(self, manifest_data: dict) -> None:
         assert "7.3" in manifest_data.get("spec_reference", "")

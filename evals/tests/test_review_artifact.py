@@ -30,9 +30,11 @@ class TestReviewArtifactRows:
         rows = _load_rows()
         assert len(rows) == TOTAL_ITEMS
 
-    def test_all_rows_carry_current_draft_status(self) -> None:
-        for row in _load_rows():
-            assert row["review_status"] == "draft"
+    def test_rows_carry_current_human_review_status(self) -> None:
+        statuses = [row["review_status"] for row in _load_rows()]
+
+        assert statuses.count("approved") == TOTAL_ITEMS
+        assert statuses.count("draft") == 0
 
     def test_poor_scan_rows_resolve_source_pages(self) -> None:
         rows = [r for r in _load_rows() if r["documento"] == POOR_SCAN_FILENAME]
@@ -64,18 +66,13 @@ class TestReviewArtifactRendering:
         assert "http://" not in html_text and "https://" not in html_text
         assert "Decisão do revisor" in html_text
 
-    def test_html_does_not_mark_items_reviewed(self) -> None:
-        """The artifact must never pre-mark items as reviewed."""
+    def test_html_shows_persisted_status_without_preselecting_new_decisions(self) -> None:
+        """The artifact exposes recorded status but starts new decisions as draft."""
         html_text = render_html(_load_rows())
-        # Every item's current status shown is draft.
         assert "status atual: " in html_text
-        # The review states are available to the reviewer (built client-side)...
         assert "reviewed_ok" in html_text
-        # ...but no embedded item data carries a reviewed/approved status.
         assert '"review_status": "reviewed"' not in html_text
-        assert '"review_status": "approved"' not in html_text
-        assert '"review_status":"reviewed"' not in html_text
-        # The default per-item decision is 'draft'.
+        assert '"review_status": "approved"' in html_text
         assert 'decision: "draft"' in html_text
 
 

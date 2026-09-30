@@ -1,6 +1,6 @@
 {
   "version": "v1",
-  "status": "draft",
+  "status": "frozen",
   "created_at": "2026-08-03T22:56:04-03:00",
   "spec_reference": "specs/12 §7.3",
   "attested_on": "2026-08-03",
@@ -11,7 +11,7 @@
     "unanswerable": 30,
     "ambiguous_partial": 18
   },
-  "notes": "Dataset status is 'draft'. All items carry review_status='draft'. Do NOT mark as frozen or approved until every item has been human-reviewed. Benchmark scores must not be fabricated against this dataset.",
+  "notes": "All 120 items were human-reviewed and approved on 2026-08-04. This frozen dataset must remain hash-locked for publishable evaluation.",
   "documents": [
     {
       "filename": "História Agrária.pdf",

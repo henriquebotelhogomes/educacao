@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 from evals.schema import GoldenItem
 from evals.tests.conftest import (
     EXPECTED_AMBIGUOUS_PARTIAL,
@@ -87,11 +89,13 @@ class TestGoldenDatasetItemSchema:
         for item in golden_items:
             assert item["id"].startswith("v1-"), f"ID {item['id']} must start with 'v1-'"
 
-    def test_all_review_status_is_draft(self, golden_items: list[dict]) -> None:
-        for item in golden_items:
-            assert (
-                item["review_status"] == "draft"
-            ), f"Item {item['id']}: review_status must be 'draft' until human review"
+    def test_review_statuses_reflect_recorded_human_decisions(
+        self,
+        golden_items: list[dict],
+    ) -> None:
+        counts = Counter(item["review_status"] for item in golden_items)
+
+        assert counts == {"approved": 120}
 
 
 class TestGoldenDatasetEvidence:
