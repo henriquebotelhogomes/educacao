@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend quality
+    runs-on: ubuntu-latest
+    env:
+      MENTORA_JWT_SECRET: ci-only-secret-with-at-least-32-bytes
+      MENTORA_COOKIE_SECURE: "false"
+      MENTORA_DATABASE_URL: postgresql+psycopg://mentora_app:mentora_dev_only@localhost:5433/mentora
+      MENTORA_TEST_DATABASE_URL: postgresql://mentora_app:mentora_dev_only@localhost:5433/mentora
+      MENTORA_ADMIN_DATABASE_URL: postgresql://postgres:postgres_dev_only@localhost:5433/mentora
+      MENTORA_MINIO_ACCESS_KEY: minioadmin
+      MENTORA_MINIO_SECRET_KEY: minioadmin_dev_only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.25"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: docker compose -f infra/compose/compose.yaml up -d postgres
+      - run: docker compose -f infra/compose/compose.yaml exec -T postgres pg_isready -U postgres -d mentora
+      - run: uv run --package mentora-api alembic -c apps/api/alembic.ini upgrade head
+      - run: uv run ruff check apps/api apps/worker
+      - run: uv run ruff format --check apps/api apps/worker
+      - run: uv run mypy --config-file=pyproject.toml
+      - run: uv run --package mentora-api pytest
+      - run: uv run --package mentora-api lint-imports
+      - if: always()
+        run: docker compose -f infra/compose/compose.yaml down -v
+
+  frontend:
+    name: Frontend quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run web:lint
+      - run: npm run web:build
+
+  contracts:
+    name: OpenAPI contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.25"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: |
+          echo "MENTORA_JWT_SECRET=ci-only-secret-with-at-least-32-bytes" >> "$GITHUB_ENV"
+          echo "MENTORA_MINIO_ACCESS_KEY=minioadmin" >> "$GITHUB_ENV"
+          echo "MENTORA_MINIO_SECRET_KEY=minioadmin_dev_only" >> "$GITHUB_ENV"
+      - run: uv sync --frozen
+      - run: npm ci
+      - run: npm run contracts:generate
+      - run: git diff --exit-code -- packages/contracts/openapi.json packages/contracts/schema.d.ts

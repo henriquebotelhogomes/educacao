@@ -1,0 +1,12 @@
+{
+  "name": "@mentora/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Contratos OpenAPI e tipos TypeScript gerados da API Mentora AI",
+  "scripts": {
+    "generate": "openapi-typescript openapi.json --output schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.8.0"
+  }
+}

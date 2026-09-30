@@ -1,0 +1,19 @@
+[importlinter]
+root_package = tutor_ai
+include_external_packages = True
+
+[importlinter:contract:business_modules_do_not_import_platform_infrastructure]
+name = Business modules do not import platform infrastructure
+type = forbidden
+source_modules =
+    tutor_ai.identity
+    tutor_ai.tenancy
+    tutor_ai.documents
+    tutor_ai.ingestion
+    tutor_ai.chat
+    tutor_ai.ai
+    tutor_ai.exercises
+    tutor_ai.metering
+    tutor_ai.analytics
+forbidden_modules =
+    tutor_ai.platform.infrastructure

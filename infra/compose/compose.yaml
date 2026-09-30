@@ -1,0 +1,257 @@
+name: mentora-ai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-mentora}
+      MENTORA_POSTGRES_USER: ${POSTGRES_USER:-mentora_app}
+      MENTORA_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mentora_dev_only}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/10-create-app-role.sql:ro
+    ports:
+      - "${MENTORA_POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-mentora}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_only}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_only}
+      MINIO_BUCKET: ${MINIO_BUCKET:-mentora-dev}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$MINIO_BUCKET"
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ../otel/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  loki:
+    image: grafana/loki:3.4.2
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ../otel/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.122.1
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ../otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ../otel/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    ports:
+      - "${MENTORA_GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_dev_only
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../otel/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    ports:
+      - "${MENTORA_API_PORT:-8000}:8000"
+    environment:
+      MENTORA_ENVIRONMENT: ${MENTORA_ENVIRONMENT:-development}
+      MENTORA_LOG_LEVEL: ${MENTORA_LOG_LEVEL:-INFO}
+      MENTORA_JWT_SECRET: ${MENTORA_JWT_SECRET:-development-only-secret-change-before-production}
+      MENTORA_COOKIE_SECURE: ${MENTORA_COOKIE_SECURE:-false}
+      MENTORA_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mentora_app}:${POSTGRES_PASSWORD:-mentora_dev_only}@postgres:5432/${POSTGRES_DB:-mentora}
+      MENTORA_REDIS_URL: redis://redis:6379/0
+      MENTORA_QDRANT_URL: http://qdrant:6333
+      MENTORA_MINIO_ENDPOINT: http://minio:9000
+      MENTORA_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MENTORA_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_only}
+      MENTORA_MINIO_BUCKET: ${MINIO_BUCKET:-mentora-dev}
+      MENTORA_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      MENTORA_ENVIRONMENT: ${MENTORA_ENVIRONMENT:-development}
+      MENTORA_LOG_LEVEL: ${MENTORA_LOG_LEVEL:-INFO}
+      MENTORA_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mentora_app}:${POSTGRES_PASSWORD:-mentora_dev_only}@postgres:5432/${POSTGRES_DB:-mentora}
+      MENTORA_REDIS_URL: redis://redis:6379/0
+      MENTORA_QDRANT_URL: http://qdrant:6333
+      MENTORA_MINIO_ENDPOINT: http://minio:9000
+      MENTORA_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MENTORA_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_only}
+      MENTORA_MINIO_BUCKET: ${MINIO_BUCKET:-mentora-dev}
+    healthcheck:
+      test: ["CMD", "uv", "run", "--package", "mentora-worker", "python", "-c", "import mentora_worker"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      API_PROXY_TARGET: http://api:8000
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+    depends_on:
+      api:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ingress:
+    image: caddy:2.9.1-alpine
+    ports:
+      - "${MENTORA_INGRESS_PORT:-8080}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  grafana-data:
+  loki-data:
+  minio-data:
+  postgres-data:
+  prometheus-data:
+  qdrant-data:
+  redis-data:
+  tempo-data:

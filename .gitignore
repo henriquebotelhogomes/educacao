@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Ambientes virtuais
+.venv/
+.venv-pre-marco0/
+node_modules/
+.next/
+
+# Segredos e configuração local
+.env
+
+# Artefatos gerados pelo protótipo
+exercicios_*.docx
+*.docx
+
+# Ferramentas de qualidade
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Artefatos/cache de benchmarks de avaliação
+evals/.cache/
+
+# IDE / SO
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Qoder
+.agentbridge/
+.qoder/

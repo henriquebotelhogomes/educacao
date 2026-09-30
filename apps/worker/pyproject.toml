@@ -1,0 +1,32 @@
+[project]
+name = "mentora-worker"
+version = "0.1.0"
+description = "Processo de workers do Mentora AI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "docling>=2.0,<3",
+    "minio>=7.2,<8",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.7,<3",
+    "qdrant-client>=1.14,<1.15",
+    "redis>=5.2,<6",
+    "sentence-transformers>=3.0,<4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

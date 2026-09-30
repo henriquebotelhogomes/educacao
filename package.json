@@ -1,0 +1,15 @@
+{
+  "name": "mentora-ai",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/contracts"
+  ],
+  "scripts": {
+    "contracts:generate": "uv run --package mentora-api python -m tutor_ai.export_openapi packages/contracts/openapi.json && npm --workspace @mentora/contracts run generate",
+    "web:dev": "npm --workspace @mentora/web run dev",
+    "web:lint": "npm --workspace @mentora/web run lint",
+    "web:build": "npm --workspace @mentora/web run build"
+  },
+  "packageManager": "npm@11.13.0"
+}
